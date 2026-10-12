@@ -1,7 +1,7 @@
 # Video POCs
 
-A collection of test videos for video proof-of-concept work: decoding,
-transcoding and codec comparisons across **AV1**, **H.264**, **H.265 (HEVC)**
+Test videos and proofs of concept for video work: decoding, transcoding,
+transport and codec comparisons across **AV1**, **H.264**, **H.265 (HEVC)**
 and **VP9**, from 360p up to 8K.
 
 ## Repository layout
@@ -11,7 +11,14 @@ datasets/
 ├── 360p/          # Big Buck Bunny, 640x360   (tracked in git)
 ├── 1080p/         # Big Buck Bunny, 1920x1080 (tracked in git)
 └── LargeFiles/    # 480p–8K clips, raw YUV    (git-ignored, download locally)
+poc1/              # Rust Arrow Flight client/server for chunked video upload
 ```
+
+## Proofs of concept
+
+| POC | Description |
+|---|---|
+| [poc1](poc1/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call. Checks that the server received all the data, how long the upload took and how the stored `.arrow` file compares in size with the video. Results: [poc1/results/RESULTS.md](poc1/results/RESULTS.md). |
 
 ## Datasets
 
