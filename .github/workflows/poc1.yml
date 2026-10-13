@@ -1,12 +1,7 @@
 name: poc1
 
 on:
-  push:
-    branches: [main]
-    paths: ["poc1/**", "datasets/1080p/**", ".github/workflows/poc1.yml"]
-  pull_request:
-    types: [opened, synchronize]
-    paths: ["poc1/**", "datasets/1080p/**", ".github/workflows/poc1.yml"]
+  workflow_dispatch:
 
 jobs:
   e2e:

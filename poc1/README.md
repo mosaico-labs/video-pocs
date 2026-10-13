@@ -124,10 +124,9 @@ CLIENT_ARGS="--chunk-size 524288 --chunks-per-batch 4" poc1/scripts/e2e.sh
 ```
 
 The [`poc1` workflow](../.github/workflows/poc1.yml) runs the unit tests and
-this script on GitHub Actions for every pull request and every push to `main`
-that touches `poc1/` or `datasets/1080p/`. It adds `summary.md` to the job
-page and uploads `summary.md`, `report.json` and `server.log` as the `poc1-e2e`
-artifact.
+this script on GitHub Actions when started from the Actions page ("Run
+workflow"). It adds `summary.md` to the job page and uploads `summary.md`,
+`report.json` and `server.log` as the `poc1-e2e` artifact.
 
 ## Running on every dataset
 
