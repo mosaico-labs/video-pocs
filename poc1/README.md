@@ -1,4 +1,4 @@
-# poc1: video upload over Arrow Flight
+# poc1: video upload and download over Arrow Flight
 
 A Rust client and server built on [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html).
 The client reads every video in a directory (by default `datasets/1080p`),
@@ -6,6 +6,9 @@ splits it into chunks and uploads each video with its **own `DoPut` call**.
 The server receives and stores each upload the way
 [mosaicod](https://github.com/mosaico-labs/mosaico) stores a topic: **one
 Parquet file per record batch** (see [Compatibility with mosaicod](#compatibility-with-mosaicod)).
+The client then downloads each video back from its Parquet files with its
+**own `DoGet` call** and checks that it is **byte-identical** to the original
+(see [Download](#download)).
 
 ## Repository layout
 
@@ -13,22 +16,23 @@ Parquet file per record batch** (see [Compatibility with mosaicod](#compatibilit
 poc1/
 ├── Cargo.toml, Cargo.lock
 ├── src/
-│   ├── lib.rs                 # chunk schema, DoPutCmd, locators, Parquet encoding, server ack
+│   ├── lib.rs                 # chunk schema, DoPutCmd, TicketTopic, locators, Parquet encoding, reassembly, server acks
 │   ├── format.rs              # Parquet writer settings per serialization format
 │   └── bin/
-│       ├── client.rs          # reads videos, uploads them, checks and reports
-│       └── server.rs          # receives DoPut calls, writes Parquet files
+│       ├── client.rs          # reads videos, uploads and downloads them, checks and reports
+│       └── server.rs          # receives DoPut calls, writes Parquet files, streams them back on DoGet
 ├── scripts/
-│   ├── run-all.sh             # uploads every video under datasets/ (or one folder, as an end-to-end test)
+│   ├── run-all.sh             # uploads and downloads every video under datasets/ (or one folder, as an end-to-end test)
 │   └── analyze.py             # turns the reports into videos.csv, per-video/ and RESULTS.md
 ├── results/                   # latest full run (committed)
 │   ├── RESULTS.md             # summary, findings and tables
 │   ├── videos.csv             # one row per video
 │   ├── reports/               # JSON client report per dataset folder (raw data of videos.csv)
-│   ├── per-video/             # three charts per video, with README.md indexes
+│   ├── per-video/             # four charts per video, with README.md indexes
 │   │   ├── file-size-comparison/  # video vs .arrow vs Parquet size, one chart per video
 │   │   ├── server-time/       # upload, server receive, Parquet encode/write time; all-videos.png
-│   │   └── client-time/       # read, split into batches, Flight encode time; all-videos.png
+│   │   ├── client-time/       # read, split into batches, Flight encode time; all-videos.png
+│   │   └── download-time/     # download, server send, Parquet read/decode time; all-videos.png
 │   └── server.log
 ├── received/                  # topics kept by run-all.sh with KEEP_DATA=1 (git-ignored)
 └── target/                    # Cargo build output (git-ignored)
@@ -69,6 +73,39 @@ The server writes each topic to:
 mosaicod uses the same `metadata.json` + `data/NNNNN.parquet` layout, but
 names the topic folder `tp_<ULID>` and keeps the locator in its database.
 
+## Download
+
+Right after uploading a video, the client downloads it with one `DoGet`,
+as a client of mosaicod would:
+
+1. The `Ticket` holds a protobuf `TicketTopic { locator, timestamp_range }`
+   (`proto/mosaico/v1/flight.proto`). The client asks for the whole topic.
+   With a range, the server keeps only the rows with
+   `start_ns <= timestamp_ns < end_ns`, which here is a range of chunks.
+2. The server reads the topic's Parquet files in the order they were written
+   (`00000.parquet`, `00001.parquet`, ...), one at a time, and decodes each
+   into record batches. The Parquet reader drops the schema metadata, so the
+   server puts the video name and file size back, as mosaicod does.
+3. It streams the batches back as Flight messages of up to 25 MiB, with LZ4
+   compression as in mosaicod (`--get-compression none` turns it off). A last
+   message without data carries a JSON `GetAck` with the server's read and
+   decode times.
+4. The client rebuilds the video from the `data` column. It checks that the
+   chunks arrive in `chunk_index` order, that each `offset` is where the
+   previous chunk ended, that every chunk is equal to the original video at
+   its offset, and that the length, the CRC32 and the `file_size` metadata
+   match. With `--restore-dir <dir>` it also writes the downloaded video to
+   `<dir>/<file name>`, so it can be compared with `cmp`.
+
+LZ4 gains nothing on encoded video. On `datasets/1080p` (three runs each of
+the end-to-end test, on loopback) the downloads are 8.4 KiB larger with LZ4
+than without, and 7% slower:
+
+| `--get-compression` | Received over gRPC | Download ms | Server send ms |
+|---|---:|---:|---:|
+| `lz4` (default, as mosaicod) | 119.50 MiB | 43.24 | 42.07 |
+| `none` | 119.49 MiB | 40.44 | 39.19 |
+
 ## What is measured
 
 For each video the server sends back what it received: chunk count, byte
@@ -85,10 +122,14 @@ and reports:
 | Server receive | From the first message the server gets until the last Parquet file is written |
 | Server encode, write | Time the server spends encoding the Parquet files and writing them to disk. Charted in `results/per-video/server-time/`: one chart per video, and `all-videos.png` for all videos |
 | Read, Chunk, Encode | Client steps before the upload: loading the file, splitting it into record batches (zero-copy slices) and serializing them into Flight messages. Charted in `results/per-video/client-time/`: one chart per video, and `all-videos.png` for all videos |
+| Restored | Whether the `DoGet` returned every chunk in order and byte-identical to the video |
+| Download | From the `DoGet` request until the client has checked the last chunk. Charted in `results/per-video/download-time/` with the server times |
+| Server send | From the `DoGet` request until the server has sent the last batch |
+| Server read, decode | Time the server spends reading the Parquet files from disk and decoding them into record batches. Charted in `results/per-video/download-time/`: one chart per video, and `all-videos.png` for all videos |
 
 The client writes every report before exiting. If any video was not
-received completely, the summary lists what differs and the client exits with
-an error.
+received completely or did not download identical to the original, the
+summary lists what differs and the client exits with an error.
 
 ## Running
 
@@ -100,7 +141,7 @@ cargo run --release --bin client -- --dataset ../datasets/1080p --report report.
 ```
 
 Run `--help` on either binary for all options (`--chunk-size`,
-`--chunks-per-batch`, `--format`, ...).
+`--chunks-per-batch`, `--restore-dir`, `--format`, `--get-compression`, ...).
 
 `--chunk-size` × `--chunks-per-batch` is the amount of video in each Parquet
 file. It must fit in one gRPC message: at most 50 MiB (mosaicod's default
@@ -119,11 +160,20 @@ so the committed results stay untouched:
 DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p poc1/scripts/run-all.sh
 ```
 
-The script fails if the client reports a chunk, byte or CRC32 mismatch, or if
-the server did not store a `metadata.json` and Parquet files for every video.
-It prints `all videos received and stored` when everything worked. The client
+The script fails if the client reports a chunk, byte or CRC32 mismatch, on
+the upload or on the download, or if the server did not store a
+`metadata.json` and Parquet files for every video. It prints `all videos
+received, stored and downloaded identical` when everything worked. The client
 report is in `/tmp/poc1-1080p/reports/1080p.json`; set `KEEP_DATA=1` to also
 keep the stored topics in `poc1/received/`.
+
+To also compare the downloaded files with the originals:
+
+```sh
+DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p \
+  CLIENT_ARGS="--restore-dir /tmp/poc1-1080p/restored" poc1/scripts/run-all.sh
+for f in datasets/1080p/*; do cmp "$f" "/tmp/poc1-1080p/restored/$(basename "$f")"; done
+```
 
 For example, to test 512 KiB chunks with 4 chunks per record batch:
 
@@ -139,8 +189,8 @@ To also get the charts and summary of that run, add
 ## Running on every dataset
 
 This is how the committed [`results/`](results/) folder is produced: every
-video under `datasets/` is uploaded, and the measurements are turned into a
-summary and charts.
+video under `datasets/` is uploaded and downloaded back, and the measurements
+are turned into a summary and charts.
 
 **Requirements:** Rust (to build the client and server), Python 3 and
 [`uv`](https://docs.astral.sh/uv/). `uv` installs `matplotlib` for
@@ -150,7 +200,7 @@ the tracked `datasets/360p` and `datasets/1080p` videos are uploaded.
 Run the two steps from the repository root, in order:
 
 ```sh
-# 1. Upload every video and write one report per dataset folder
+# 1. Upload and download every video and write one report per dataset folder
 poc1/scripts/run-all.sh
 
 # 2. Turn the reports into the CSV, the per-video charts and the summary
@@ -160,15 +210,14 @@ uv run poc1/scripts/analyze.py
 | Step | Script | Writes to `poc1/results/` |
 |---|---|---|
 | 1 | `run-all.sh` | `reports/<folder>.json`, `server.log` |
-| 2 | `analyze.py` | `videos.csv`; `per-video/{file-size-comparison,server-time,client-time}/<dataset>/<resolution>/<codec>/<video>.png`, `all-videos.png` in the two time folders and a `README.md` index in each folder that starts with what to improve first, computed from the data; `RESULTS.md` |
+| 2 | `analyze.py` | `videos.csv`; `per-video/{file-size-comparison,server-time,client-time,download-time}/<dataset>/<resolution>/<codec>/<video>.png`, `all-videos.png` in the three time folders and a `README.md` index in each folder that starts with what to improve first, computed from the data; `RESULTS.md` |
 
 Step 1 deletes `poc1/results/` before it starts, so always run step 2 after
 it. Then commit `poc1/results/`: it holds only data meant for the repository,
 and the paths in the reports are relative to the repository. `analyze.py`
 saves the charts as PNGs without metadata, and the per-video ones with 256
 colors (under half the size of matplotlib's own PNGs, with no visible
-difference), so a chart file only
-changes when its numbers do. The file-size charts in particular stay the same
+difference), so a chart file only changes when its numbers do. The file-size charts in particular stay the same
 across runs with the same settings.
 
 **How step 1 works.** `run-all.sh` builds the binaries, starts the server once
@@ -224,8 +273,8 @@ and shrink that gap.
 
 ## Compatibility with mosaicod
 
-The server follows mosaicod's `DoPut` handling
-(`mosaicod-grpc-flight/src/endpoint/do_put.rs`) and storage
+The server follows mosaicod's `DoPut` and `DoGet` handling
+(`mosaicod-grpc-flight/src/endpoint/do_put.rs` and `do_get.rs`) and storage
 (`mosaicod-rw`), so the client would work against mosaicod and the stored
 sizes match what mosaicod would write:
 
@@ -239,6 +288,9 @@ sizes match what mosaicod would write:
 | Writer settings | Chosen by the topic's serialization format | Same settings, chosen with `--format` |
 | Message size limit | 50 MiB by default | Same (`--max-decode-message-size`) |
 | Existing topic | Rejected unless the topic is empty | Rejected if the topic folder exists |
+| `DoGet` ticket | Protobuf `TicketTopic { locator, timestamp_range }` | Same |
+| `DoGet` data | Topic read with DataFusion, sorted by `timestamp_ns`, filtered by the range, schema metadata kept | Parquet files read in order (the same order), filtered by the range, schema metadata kept |
+| `DoGet` messages | LZ4, up to 25 MiB | Same (`--get-compression`) |
 
 What the poc does not do:
 
@@ -253,9 +305,14 @@ What the poc does not do:
   `--chunk-size` × `--chunks-per-batch` bytes of video is one file: with the
   defaults the largest video here (`026_h264_8K.mp4`, 258.91 MiB) is 259 files,
   and a 1 GiB video would be 1,024.
-- **Acknowledgement.** mosaicod answers `DoPut` with an empty stream, no
-  `PutResult` at all; the JSON
-  `PutAck` exists only for this poc's checks.
+- **`DoGet` batch size.** mosaicod re-batches the rows it reads to an
+  "optimal batch size" computed from the topic's statistics. Here every
+  Parquet file comes back as the batch it was uploaded as.
+- **Acknowledgements.** mosaicod answers `DoPut` with an empty stream, no
+  `PutResult` at all, and sends only record batches on `DoGet`. The JSON
+  `PutAck` and the last `DoGet` message carrying a `GetAck` exist only for
+  this poc's checks; a client that reads only record batches skips the
+  latter.
 
 ## The `video` serialization format
 

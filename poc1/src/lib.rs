@@ -1,8 +1,10 @@
 //! Shared definitions for the poc1 Arrow Flight client and server.
 //!
-//! Every video is uploaded as one mosaicod topic with its own `DoPut` call.
-//! The Flight descriptor is a command holding a [`DoPutCmd`], as in mosaicod,
-//! and the data is a stream of record batches with this layout:
+//! Every video is uploaded as one mosaicod topic with its own `DoPut` call
+//! and downloaded with its own `DoGet` call. The `DoPut` descriptor is a
+//! command holding a [`DoPutCmd`] and the `DoGet` ticket holds a
+//! [`TicketTopic`], as in mosaicod. The data is a stream of record batches
+//! with this layout:
 //!
 //! | column         | type     | meaning                                  |
 //! |----------------|----------|------------------------------------------|
@@ -32,6 +34,10 @@ pub const MAX_DECODE_MESSAGE_SIZE: usize = 50 * 1024 * 1024;
 /// Largest message mosaicod sends (`GRPC_MSG_MAX_SIZE_BYTES`).
 pub const MAX_ENCODE_MESSAGE_SIZE: usize = 512 * 1024 * 1024;
 
+/// Largest message mosaicod aims for when it streams a topic back with
+/// `DoGet` (`DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE`).
+pub const TARGET_ENCODE_MESSAGE_SIZE: usize = 25 * 1024 * 1024;
+
 /// Index column every mosaicod topic must have, of type `Int64`.
 pub const TIMESTAMP_COLUMN: &str = "timestamp_ns";
 
@@ -43,6 +49,27 @@ pub struct DoPutCmd {
     pub locator: String,
     #[prost(string, tag = "2")]
     pub topic_uuid: String,
+}
+
+/// Time range of a `DoGet`, as `TimestampRange` in
+/// `proto/mosaico/v1/time.proto`: rows with `start_ns <= timestamp_ns <
+/// end_ns`, where a missing bound is unbounded.
+#[derive(Clone, Copy, PartialEq, prost::Message)]
+pub struct TimestampRange {
+    #[prost(int64, optional, tag = "1")]
+    pub start_ns: Option<i64>,
+    #[prost(int64, optional, tag = "2")]
+    pub end_ns: Option<i64>,
+}
+
+/// `Ticket.ticket` payload of a `DoGet`, as `TicketTopic` in
+/// `proto/mosaico/v1/flight.proto`.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct TicketTopic {
+    #[prost(string, tag = "1")]
+    pub locator: String,
+    #[prost(message, optional, tag = "2")]
+    pub timestamp_range: Option<TimestampRange>,
 }
 
 /// Characters mosaicod rejects in sequence and topic names.
@@ -192,6 +219,108 @@ pub struct PutAck {
     pub stored_files: u64,
     /// Total size of the Parquet files on disk.
     pub stored_bytes: u64,
+}
+
+/// What the server sent for one `DoGet`, returned as JSON in the
+/// `app_metadata` of a last message without data, after the batches.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GetAck {
+    /// Topic locator, `<sequence>/<topic>`.
+    pub locator: String,
+    /// Parquet files read.
+    pub files: u64,
+    /// Record batches sent.
+    pub batches: u64,
+    /// Chunks sent (one per row).
+    pub rows: u64,
+    /// Sum of the `data` column lengths sent.
+    pub payload_bytes: u64,
+    /// Time spent reading the Parquet files from disk.
+    pub read_ms: f64,
+    /// Time spent decoding the Parquet files into record batches.
+    pub decode_ms: f64,
+    /// From the `DoGet` request until the last batch was sent.
+    pub send_ms: f64,
+}
+
+/// Rows of `batch` inside `range`. `timestamp_ns` grows strictly in a
+/// topic, so they are one contiguous, zero-copy slice. `None` when no row is
+/// inside.
+pub fn slice_to_range(batch: &RecordBatch, range: &TimestampRange) -> Option<RecordBatch> {
+    let timestamps = batch
+        .column_by_name(TIMESTAMP_COLUMN)?
+        .as_any()
+        .downcast_ref::<Int64Array>()?
+        .values();
+    let start = range
+        .start_ns
+        .map_or(0, |s| timestamps.partition_point(|&t| t < s));
+    let end = range
+        .end_ns
+        .map_or(timestamps.len(), |e| timestamps.partition_point(|&t| t < e));
+    (start < end).then(|| batch.slice(start, end - start))
+}
+
+/// Rebuilds a video from the batches a `DoGet` returns, checking that the
+/// chunks arrive in order and that each starts where the previous one ended.
+#[derive(Default)]
+pub struct Reassembler {
+    /// Chunks received so far.
+    pub chunks: u64,
+    /// Bytes received so far.
+    pub bytes: u64,
+    hasher: crc32fast::Hasher,
+}
+
+impl Reassembler {
+    /// Checks the chunks of `batch` and hands each to `on_chunk` with its
+    /// byte offset in the video.
+    pub fn push(
+        &mut self,
+        batch: &RecordBatch,
+        mut on_chunk: impl FnMut(u64, &[u8]),
+    ) -> Result<(), String> {
+        let column = |name: &str| {
+            batch
+                .column_by_name(name)
+                .ok_or_else(|| format!("missing column {name}"))
+        };
+        let indexes = column("chunk_index")?
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .ok_or("chunk_index must be UInt32")?;
+        let offsets = column("offset")?
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .ok_or("offset must be UInt64")?;
+        let chunks = column("data")?
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .ok_or("data must be Binary")?;
+
+        for ((index, offset), chunk) in indexes.values().iter().zip(offsets.values()).zip(chunks) {
+            if u64::from(*index) != self.chunks {
+                return Err(format!("chunk {index} arrived, expected {}", self.chunks));
+            }
+            if *offset != self.bytes {
+                return Err(format!(
+                    "chunk {index} starts at byte {offset}, expected {}",
+                    self.bytes
+                ));
+            }
+            let chunk = chunk.unwrap_or_default();
+            self.hasher.update(chunk);
+            on_chunk(self.bytes, chunk);
+            self.chunks += 1;
+            self.bytes += chunk.len() as u64;
+        }
+        Ok(())
+    }
+
+    /// CRC32 of the bytes received so far.
+    pub fn crc32(&self) -> u32 {
+        self.hasher.clone().finalize()
+    }
 }
 
 /// Counts the bytes written to it and drops them.
@@ -379,6 +508,68 @@ mod tests {
             arrow_ipc_file_size(&schema, &batches).unwrap(),
             file.len() as u64
         );
+    }
+
+    #[test]
+    fn parquet_files_reassemble_into_the_video() {
+        let bytes = sample(5_000);
+        let schema = chunk_schema("video.mp4", bytes.len() as u64);
+        let batches =
+            split_into_batches(&schema, &Buffer::from_vec(bytes.clone()), 700, 3).unwrap();
+        let mut reassembler = Reassembler::default();
+        let mut restored = Vec::new();
+        for batch in &batches {
+            let file = encode_parquet(batch, Format::Video).unwrap();
+            let reader = ParquetRecordBatchReaderBuilder::try_new(bytes::Bytes::from(file))
+                .unwrap()
+                .build()
+                .unwrap();
+            for batch in reader {
+                reassembler
+                    .push(&batch.unwrap(), |offset, chunk| {
+                        assert_eq!(offset as usize, restored.len());
+                        restored.extend_from_slice(chunk);
+                    })
+                    .unwrap();
+            }
+        }
+        assert_eq!(restored, bytes);
+        assert_eq!(reassembler.bytes, bytes.len() as u64);
+        assert_eq!(reassembler.chunks, bytes.len().div_ceil(700) as u64);
+        assert_eq!(reassembler.crc32(), crc32fast::hash(&bytes));
+    }
+
+    #[test]
+    fn reassembler_rejects_missing_or_reordered_chunks() {
+        let bytes = sample(5_000);
+        let schema = chunk_schema("video.mp4", bytes.len() as u64);
+        let batches = split_into_batches(&schema, &Buffer::from_vec(bytes), 700, 3).unwrap();
+
+        let mut reassembler = Reassembler::default();
+        reassembler.push(&batches[0], |_, _| {}).unwrap();
+        assert!(reassembler.push(&batches[2], |_, _| {}).is_err());
+
+        let mut reassembler = Reassembler::default();
+        assert!(reassembler.push(&batches[1], |_, _| {}).is_err());
+    }
+
+    #[test]
+    fn range_slices_follow_mosaicod_bounds() {
+        let schema = chunk_schema("video.mp4", 10);
+        let batch = &split_into_batches(&schema, &Buffer::from_vec(sample(10)), 1, 10).unwrap()[0];
+        let rows = |start_ns, end_ns| {
+            slice_to_range(batch, &TimestampRange { start_ns, end_ns }).map(|b| {
+                let ts = b.column(0).as_any().downcast_ref::<Int64Array>().unwrap();
+                (ts.value(0), ts.value(ts.len() - 1))
+            })
+        };
+        assert_eq!(rows(None, None), Some((0, 9)));
+        // Start included, end excluded.
+        assert_eq!(rows(Some(3), Some(7)), Some((3, 6)));
+        assert_eq!(rows(Some(8), None), Some((8, 9)));
+        assert_eq!(rows(None, Some(1)), Some((0, 0)));
+        assert_eq!(rows(Some(5), Some(5)), None);
+        assert_eq!(rows(Some(20), None), None);
     }
 
     #[test]

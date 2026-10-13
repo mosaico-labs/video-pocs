@@ -1,6 +1,8 @@
 //! Arrow Flight client: uploads every video in a directory as a mosaicod
 //! topic, with one `DoPut` per video, checks that the server received all the
-//! data and compares the stored Parquet files with the original video.
+//! data and compares the stored Parquet files with the original video. Then
+//! it downloads each video back with one `DoGet` and checks that it is
+//! identical to the original.
 
 use std::{
     fmt::Write as _,
@@ -11,14 +13,15 @@ use std::{
 use anyhow::{Context, bail, ensure};
 use arrow_buffer::Buffer;
 use arrow_flight::{
-    FlightClient, FlightData, FlightDescriptor, PutResult, encode::FlightDataEncoderBuilder,
-    flight_service_client::FlightServiceClient,
+    FlightClient, FlightData, FlightDescriptor, PutResult, Ticket, decode::DecodedPayload,
+    encode::FlightDataEncoderBuilder, flight_service_client::FlightServiceClient,
 };
 use clap::Parser;
-use futures::{TryStreamExt, stream};
+use futures::{StreamExt, TryStreamExt, stream};
 use poc1::{
-    DoPutCmd, MAX_DECODE_MESSAGE_SIZE, MAX_ENCODE_MESSAGE_SIZE, PutAck, arrow_ipc_file_size,
-    chunk_schema, human_size, human_size_diff, locator_part, split_into_batches, wire_size,
+    DoPutCmd, GetAck, MAX_DECODE_MESSAGE_SIZE, MAX_ENCODE_MESSAGE_SIZE, PutAck, Reassembler,
+    TicketTopic, arrow_ipc_file_size, chunk_schema, human_size, human_size_diff, locator_part,
+    split_into_batches, wire_size,
 };
 use prost::Message;
 use serde::Serialize;
@@ -54,6 +57,10 @@ struct Args {
     /// Write the full report as JSON to this file.
     #[arg(long)]
     report: Option<PathBuf>,
+    /// Also write every downloaded video to this folder, under its file
+    /// name. Without it the downloads are only compared in memory.
+    #[arg(long)]
+    restore_dir: Option<PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -99,6 +106,26 @@ struct VideoReport {
     server_encode_ms: f64,
     /// Server time spent writing Parquet files to disk.
     server_store_ms: f64,
+    /// The `DoGet` returned every chunk in order, byte-identical to the video.
+    restored: bool,
+    restored_chunks: u64,
+    restored_bytes: u64,
+    /// Flight messages received by the `DoGet` (batches and the server ack).
+    download_messages: u64,
+    /// Bytes received over gRPC by the `DoGet` (protobuf + gRPC framing).
+    download_wire_bytes: u64,
+    /// From the `DoGet` request until the last message was received and checked.
+    download_ms: f64,
+    /// Server time from the `DoGet` request until the last batch was sent.
+    server_send_ms: f64,
+    /// Server time spent reading the Parquet files from disk.
+    server_read_ms: f64,
+    /// Server time spent decoding the Parquet files into record batches.
+    server_decode_ms: f64,
+    /// Where the downloaded video was written, with `--restore-dir`.
+    restored_path: Option<String>,
+    /// Time spent writing the downloaded video, with `--restore-dir`.
+    restore_write_ms: f64,
 }
 
 #[derive(Serialize)]
@@ -119,6 +146,12 @@ struct Totals {
     server_receive_ms: f64,
     server_encode_ms: f64,
     server_store_ms: f64,
+    restored: usize,
+    download_wire_bytes: u64,
+    download_ms: f64,
+    server_send_ms: f64,
+    server_read_ms: f64,
+    server_decode_ms: f64,
 }
 
 #[derive(Serialize)]
@@ -190,6 +223,83 @@ async fn upload(client: &mut FlightClient, messages: Vec<FlightData>) -> anyhow:
     Ok(serde_json::from_slice(&result.app_metadata)?)
 }
 
+/// What a `DoGet` returned, checked against the original video.
+struct Download {
+    reassembler: Reassembler,
+    /// Every chunk matched the video at its offset.
+    identical: bool,
+    ack: Option<GetAck>,
+    messages: u64,
+    wire_bytes: u64,
+    problems: Vec<String>,
+}
+
+/// Downloads a topic with one `DoGet` and compares each chunk with the bytes
+/// of `original` at its offset. With `restored`, also copies the chunks into it.
+async fn download(
+    client: &mut FlightClient,
+    locator: &str,
+    original: &[u8],
+    mut restored: Option<&mut Vec<u8>>,
+) -> anyhow::Result<Download> {
+    let ticket = TicketTopic {
+        locator: locator.to_string(),
+        timestamp_range: None,
+    };
+    let mut stream = client
+        .do_get(Ticket::new(ticket.encode_to_vec()))
+        .await?
+        .into_inner();
+    let mut out_of_order = false;
+    let mut result = Download {
+        reassembler: Reassembler::default(),
+        identical: true,
+        ack: None,
+        messages: 0,
+        wire_bytes: 0,
+        problems: Vec::new(),
+    };
+    while let Some(decoded) = stream.next().await {
+        let decoded = decoded?;
+        result.messages += 1;
+        result.wire_bytes += wire_size(&decoded.inner);
+        match decoded.payload {
+            DecodedPayload::RecordBatch(batch) => {
+                if out_of_order {
+                    // Nothing more to compare.
+                    continue;
+                }
+                let metadata = batch.schema_ref().metadata();
+                if result.reassembler.chunks == 0
+                    && metadata.get("file_size") != Some(&original.len().to_string())
+                {
+                    result.problems.push(format!(
+                        "downloaded schema has file_size {:?}, video has {} bytes",
+                        metadata.get("file_size"),
+                        original.len()
+                    ));
+                }
+                let pushed = result.reassembler.push(&batch, |offset, chunk| {
+                    let offset = offset as usize;
+                    result.identical &= original.get(offset..offset + chunk.len()) == Some(chunk);
+                    if let Some(restored) = restored.as_deref_mut() {
+                        restored.extend_from_slice(chunk);
+                    }
+                });
+                if let Err(problem) = pushed {
+                    result.problems.push(format!("download: {problem}"));
+                    out_of_order = true;
+                }
+            }
+            DecodedPayload::None if !decoded.inner.app_metadata.is_empty() => {
+                result.ack = Some(serde_json::from_slice(&decoded.inner.app_metadata)?);
+            }
+            DecodedPayload::None | DecodedPayload::Schema(_) => {}
+        }
+    }
+    Ok(result)
+}
+
 async fn send_video(
     client: &mut FlightClient,
     path: &Path,
@@ -213,12 +323,9 @@ async fn send_video(
 
     let started = Instant::now();
     let schema = chunk_schema(&name, file_bytes);
-    let batches = split_into_batches(
-        &schema,
-        &Buffer::from_vec(bytes),
-        args.chunk_size,
-        args.chunks_per_batch,
-    )?;
+    // Kept until the download, to compare it with the video.
+    let original = Buffer::from_vec(bytes);
+    let batches = split_into_batches(&schema, &original, args.chunk_size, args.chunks_per_batch)?;
     let chunk = started.elapsed();
     let chunks: u64 = batches.iter().map(|batch| batch.num_rows() as u64).sum();
     let arrow_bytes = arrow_ipc_file_size(&schema, &batches)?;
@@ -266,6 +373,58 @@ async fn send_video(
     if ack.stored_bytes == 0 {
         problems.push("server stored no Parquet data".to_string());
     }
+    let complete = problems.is_empty();
+
+    let mut restored_video = args
+        .restore_dir
+        .as_ref()
+        .map(|_| Vec::with_capacity(original.len()));
+    let started = Instant::now();
+    let got = download(
+        client,
+        &locator,
+        original.as_slice(),
+        restored_video.as_mut(),
+    )
+    .await?;
+    let download_time = started.elapsed();
+    let restored_chunks = got.reassembler.chunks;
+    let restored_bytes = got.reassembler.bytes;
+    problems.extend(got.problems.iter().cloned());
+    if restored_chunks != chunks {
+        problems.push(format!(
+            "sent {chunks} chunks, downloaded {restored_chunks}"
+        ));
+    }
+    if restored_bytes != file_bytes {
+        problems.push(format!(
+            "sent {file_bytes} bytes, downloaded {restored_bytes}"
+        ));
+    }
+    if !got.identical || got.reassembler.crc32() != crc32 {
+        problems.push("downloaded bytes differ from the video".to_string());
+    }
+    let server = got.ack.unwrap_or_else(|| {
+        problems.push("server sent no DoGet ack".to_string());
+        GetAck::default()
+    });
+    let restored = got.problems.is_empty()
+        && restored_chunks == chunks
+        && restored_bytes == file_bytes
+        && got.identical
+        && got.reassembler.crc32() == crc32;
+
+    let (restored_path, restore_write) = match (&args.restore_dir, restored_video) {
+        (Some(dir), Some(video)) => {
+            let path = dir.join(&name);
+            let started = Instant::now();
+            tokio::fs::write(&path, video)
+                .await
+                .with_context(|| format!("writing {}", path.display()))?;
+            (Some(path.display().to_string()), started.elapsed())
+        }
+        _ => (None, Duration::ZERO),
+    };
 
     Ok(VideoReport {
         file: name,
@@ -282,7 +441,7 @@ async fn send_video(
         chunks_received: ack.rows,
         bytes_received: ack.payload_bytes,
         crc32_match,
-        complete: problems.is_empty(),
+        complete,
         problems,
         batches: ack.batches,
         flight_messages,
@@ -294,6 +453,17 @@ async fn send_video(
         server_receive_ms: ack.receive_ms,
         server_encode_ms: ack.encode_ms,
         server_store_ms: ack.store_ms,
+        restored,
+        restored_chunks,
+        restored_bytes,
+        download_messages: got.messages,
+        download_wire_bytes: got.wire_bytes,
+        download_ms: ms(download_time),
+        server_send_ms: server.send_ms,
+        server_read_ms: server.read_ms,
+        server_decode_ms: server.decode_ms,
+        restored_path,
+        restore_write_ms: ms(restore_write),
     })
 }
 
@@ -347,6 +517,14 @@ fn render_markdown(report: &Report) -> String {
          in {:.2} ms of upload time.
 ",
         t.complete, t.videos, t.upload_ms
+    );
+    let verdict = if t.restored == t.videos { "✅" } else { "❌" };
+    let _ = writeln!(
+        out,
+        "{verdict} **{}/{} videos downloaded byte-identical** with `DoGet` in {:.2} ms of \
+         download time.
+",
+        t.restored, t.videos, t.download_ms
     );
 
     let _ = writeln!(
@@ -428,6 +606,41 @@ fn render_markdown(report: &Report) -> String {
         t.upload_ms, t.server_receive_ms
     );
 
+    let _ = writeln!(
+        out,
+        "### Downloaded data
+"
+    );
+    let _ = writeln!(
+        out,
+        "| File | Chunks downloaded | Data downloaded | Identical | Received | Download ms | Server send ms |"
+    );
+    let _ = writeln!(out, "|---|---:|---:|:---:|---:|---:|---:|");
+    for v in &report.videos {
+        let _ = writeln!(
+            out,
+            "| {} `{}` | {}/{} | {} of {} | {} | {} | {:.2} | {:.2} |",
+            if v.restored { "✅" } else { "❌" },
+            v.file,
+            v.restored_chunks,
+            v.chunks_sent,
+            human_size(v.restored_bytes),
+            human_size(v.file_bytes),
+            if v.restored { "yes" } else { "**no**" },
+            human_size(v.download_wire_bytes),
+            v.download_ms,
+            v.server_send_ms
+        );
+    }
+    let _ = writeln!(
+        out,
+        "| **Total** | | | | {} | {:.2} | {:.2} |
+",
+        human_size(t.download_wire_bytes),
+        t.download_ms,
+        t.server_send_ms
+    );
+
     let problems: Vec<_> = report
         .videos
         .iter()
@@ -498,6 +711,30 @@ fn render_markdown(report: &Report) -> String {
         "| **Total** | {:.2} | {:.2} |",
         t.server_encode_ms, t.server_store_ms
     );
+
+    let _ = writeln!(
+        out,
+        "
+### Server steps of the download
+"
+    );
+    let _ = writeln!(
+        out,
+        "| File | Parquet read ms | Parquet decode ms |
+|---|---:|---:|"
+    );
+    for v in &report.videos {
+        let _ = writeln!(
+            out,
+            "| `{}` | {:.2} | {:.2} |",
+            v.file, v.server_read_ms, v.server_decode_ms
+        );
+    }
+    let _ = writeln!(
+        out,
+        "| **Total** | {:.2} | {:.2} |",
+        t.server_read_ms, t.server_decode_ms
+    );
     out
 }
 
@@ -522,6 +759,9 @@ async fn main() -> anyhow::Result<()> {
          {}-byte message (--max-message-size)",
         args.max_message_size
     );
+    if let Some(dir) = &args.restore_dir {
+        std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    }
     let sequence = match &args.sequence {
         Some(sequence) => sequence.clone(),
         None => locator_part(
@@ -566,6 +806,12 @@ async fn main() -> anyhow::Result<()> {
         server_receive_ms: reports.iter().map(|v| v.server_receive_ms).sum(),
         server_encode_ms: reports.iter().map(|v| v.server_encode_ms).sum(),
         server_store_ms: reports.iter().map(|v| v.server_store_ms).sum(),
+        restored: reports.iter().filter(|v| v.restored).count(),
+        download_wire_bytes: reports.iter().map(|v| v.download_wire_bytes).sum(),
+        download_ms: reports.iter().map(|v| v.download_ms).sum(),
+        server_send_ms: reports.iter().map(|v| v.server_send_ms).sum(),
+        server_read_ms: reports.iter().map(|v| v.server_read_ms).sum(),
+        server_decode_ms: reports.iter().map(|v| v.server_decode_ms).sum(),
     };
     let report = Report {
         config: &args,
@@ -583,6 +829,12 @@ async fn main() -> anyhow::Result<()> {
         t.complete == t.videos,
         "the server did not receive all the data for {} of {} videos",
         t.videos - t.complete,
+        t.videos
+    );
+    ensure!(
+        t.restored == t.videos,
+        "{} of {} videos did not download identical to the original",
+        t.videos - t.restored,
         t.videos
     );
     Ok(())

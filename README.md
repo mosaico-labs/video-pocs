@@ -11,14 +11,14 @@ datasets/
 ├── 360p/          # Big Buck Bunny, 640x360   (tracked in git)
 ├── 1080p/         # Big Buck Bunny, 1920x1080 (tracked in git)
 └── LargeFiles/    # 480p–8K clips, raw YUV    (git-ignored, download locally)
-poc1/              # Rust Arrow Flight client/server for chunked video upload (mosaicod-compatible)
+poc1/              # Rust Arrow Flight client/server for chunked video upload and download (mosaicod-compatible)
 ```
 
 ## Proofs of concept
 
 | POC | Description |
 |---|---|
-| [poc1](poc1/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [poc1/results/RESULTS.md](poc1/results/RESULTS.md). |
+| [poc1](poc1/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Then downloads each video back from its Parquet files with `DoGet` and checks that it is byte-identical. Checks that the server received all the data, how long the upload and the download took and how the stored Parquet files compare in size with the video. Results: [poc1/results/RESULTS.md](poc1/results/RESULTS.md). |
 
 ## Datasets
 

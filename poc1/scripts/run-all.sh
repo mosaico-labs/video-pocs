@@ -3,9 +3,10 @@
 #
 # The client is run once for each folder that directly contains videos (for
 # example datasets/1080p or datasets/LargeFiles/480p/AV1). The client fails if
-# the server did not receive every chunk and byte with a matching CRC32; after
-# each folder the script also checks that the server stored a metadata.json
-# and Parquet files for every video. Run it on one folder as an end-to-end test:
+# the server did not receive every chunk and byte with a matching CRC32, or if
+# a video downloaded back with DoGet differs from the original; after each
+# folder the script also checks that the server stored a metadata.json and
+# Parquet files for every video. Run it on one folder as an end-to-end test:
 #   DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p poc1/scripts/run-all.sh
 #
 # OUT_DIR only gets data meant to be committed. The server stores each video as
@@ -96,7 +97,7 @@ find "$OUT_DIR/reports" "$OUT_DIR/server.log" -type f \
 find "$OUT_DIR" -name '*.bak' -delete
 
 if [ "$status" -eq 0 ]; then
-  echo "all videos received and stored: reports in $OUT_DIR/reports"
+  echo "all videos received, stored and downloaded identical: reports in $OUT_DIR/reports"
 else
   echo "some videos failed, see the errors above: reports in $OUT_DIR/reports" >&2
 fi

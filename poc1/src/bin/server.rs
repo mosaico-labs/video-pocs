@@ -1,5 +1,6 @@
 //! Arrow Flight server: receives one `DoPut` per video and stores it the way
-//! mosaicod stores a topic: one Parquet file per record batch.
+//! mosaicod stores a topic: one Parquet file per record batch. `DoGet` streams
+//! a topic back from its Parquet files, as mosaicod does.
 //!
 //! ```text
 //! <out-dir>/<sequence>/<topic>/metadata.json
@@ -9,26 +10,36 @@
 //! mosaicod names the topic folder `tp_<ULID>` and keeps the locator in its
 //! database; here the folder is named after the locator so it can be found.
 
-use std::{fmt::Display, net::SocketAddr, path::PathBuf, time::Instant};
+use std::{
+    fmt::Display,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use arrow_array::{Array, BinaryArray, RecordBatch, UInt32Array};
 use arrow_flight::{
     Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PollInfo, PutResult, SchemaResult, Ticket,
     decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder},
+    encode::FlightDataEncoderBuilder,
     error::FlightError,
     flight_descriptor::DescriptorType,
     flight_service_server::{FlightService, FlightServiceServer},
 };
+use arrow_ipc::{CompressionType, writer::IpcWriteOptions};
 use arrow_schema::{DataType, SchemaRef};
 use clap::Parser;
 use futures::{
     StreamExt, TryStreamExt,
     stream::{self, BoxStream},
 };
+use parquet::{arrow::arrow_reader::ParquetRecordBatchReaderBuilder, errors::ParquetError};
 use poc1::{
-    DoPutCmd, Format, MAX_DECODE_MESSAGE_SIZE, MAX_ENCODE_MESSAGE_SIZE, PutAck, TIMESTAMP_COLUMN,
-    encode_parquet, parse_topic_locator, wire_size,
+    DoPutCmd, Format, GetAck, MAX_DECODE_MESSAGE_SIZE, MAX_ENCODE_MESSAGE_SIZE, PutAck,
+    TARGET_ENCODE_MESSAGE_SIZE, TIMESTAMP_COLUMN, TicketTopic, TimestampRange, encode_parquet,
+    parse_topic_locator, slice_to_range, wire_size,
 };
 use prost::Message;
 use serde::Serialize;
@@ -50,11 +61,22 @@ struct Args {
     /// Largest message accepted, in bytes (mosaicod default: 50 MiB).
     #[arg(long, default_value_t = MAX_DECODE_MESSAGE_SIZE)]
     max_decode_message_size: usize,
+    /// Compression of the Arrow IPC messages `DoGet` sends (mosaicod: always
+    /// LZ4).
+    #[arg(long, value_enum, default_value_t = GetCompression::Lz4)]
+    get_compression: GetCompression,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum GetCompression {
+    Lz4,
+    None,
 }
 
 struct VideoFlightService {
     out_dir: PathBuf,
     format: Format,
+    get_compression: GetCompression,
 }
 
 /// Content of `metadata.json`, a reduced version of mosaicod's
@@ -258,6 +280,159 @@ impl VideoFlightService {
     }
 }
 
+/// IPC message header of type `NONE`: a Flight message that carries only
+/// `app_metadata`, which decoders pass on without data.
+fn metadata_only_header() -> Vec<u8> {
+    let mut fbb = flatbuffers::FlatBufferBuilder::new();
+    let mut message = arrow_ipc::MessageBuilder::new(&mut fbb);
+    message.add_version(arrow_ipc::MetadataVersion::V5);
+    message.add_header_type(arrow_ipc::MessageHeader::NONE);
+    message.add_bodyLength(0);
+    let message = message.finish();
+    fbb.finish(message, None);
+    fbb.finished_data().to_vec()
+}
+
+/// Parquet files of a topic, in the order they were written.
+async fn parquet_files(data_dir: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    let mut entries = tokio::fs::read_dir(data_dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        // `00000.parquet`, `00001.parquet`, ...: past 99999 the names get
+        // longer, so they are sorted by number, not by name.
+        if let Some(number) = path
+            .extension()
+            .filter(|ext| *ext == "parquet")
+            .and_then(|_| path.file_stem()?.to_str()?.parse::<u64>().ok())
+        {
+            files.push((number, path));
+        }
+    }
+    files.sort();
+    Ok(files.into_iter().map(|(_, path)| path).collect())
+}
+
+/// Reads one Parquet file into record batches, keeping the rows inside
+/// `range`, and adds the work to `ack`.
+async fn read_parquet(
+    path: PathBuf,
+    range: TimestampRange,
+    ack: Arc<Mutex<GetAck>>,
+) -> Result<Vec<RecordBatch>, Status> {
+    let read_started = Instant::now();
+    let file = tokio::fs::read(&path).await.map_err(internal)?;
+    let read_ms = read_started.elapsed().as_secs_f64() * 1e3;
+
+    let decode_started = Instant::now();
+    let batches = tokio::task::spawn_blocking(move || -> Result<Vec<RecordBatch>, ParquetError> {
+        let builder = ParquetRecordBatchReaderBuilder::try_new(bytes::Bytes::from(file))?;
+        // The reader drops the schema metadata (video name and file size)
+        // from its batches; mosaicod keeps it, so it is put back.
+        let schema = builder.schema().clone();
+        builder
+            .build()?
+            .map(|batch| Ok(batch?.with_schema(schema.clone())?))
+            .collect()
+    })
+    .await
+    .map_err(internal)?
+    .map_err(internal)?;
+    let decode_ms = decode_started.elapsed().as_secs_f64() * 1e3;
+
+    let batches: Vec<RecordBatch> = batches
+        .iter()
+        .filter_map(|batch| slice_to_range(batch, &range))
+        .collect();
+    let mut ack = ack.lock().unwrap();
+    ack.files += 1;
+    ack.read_ms += read_ms;
+    ack.decode_ms += decode_ms;
+    for batch in &batches {
+        ack.batches += 1;
+        ack.rows += batch.num_rows() as u64;
+        if let Some(chunks) = batch
+            .column_by_name("data")
+            .and_then(|c| c.as_any().downcast_ref::<BinaryArray>())
+        {
+            ack.payload_bytes += chunks
+                .iter()
+                .map(|c| c.map_or(0, <[u8]>::len) as u64)
+                .sum::<u64>();
+        }
+    }
+    Ok(batches)
+}
+
+impl VideoFlightService {
+    /// Streams a topic back from its Parquet files, one file at a time, as
+    /// record batches followed by a message carrying the [`GetAck`].
+    async fn send(
+        &self,
+        ticket: Ticket,
+    ) -> Result<BoxStream<'static, Result<FlightData, Status>>, Status> {
+        let started = Instant::now();
+        let ticket = TicketTopic::decode(ticket.ticket.as_ref())
+            .map_err(|e| Status::invalid_argument(format!("bad TicketTopic: {e}")))?;
+        let (sequence, topic) = parse_topic_locator(&ticket.locator).ok_or_else(|| {
+            Status::invalid_argument(format!("bad locator: {:?}", ticket.locator))
+        })?;
+        let files = parquet_files(&self.out_dir.join(sequence).join(topic).join("data"))
+            .await
+            .map_err(|_| Status::not_found(format!("topic {} not found", ticket.locator)))?;
+        let range = ticket.timestamp_range.unwrap_or_default();
+        let ack = Arc::new(Mutex::new(GetAck {
+            locator: ticket.locator.clone(),
+            ..GetAck::default()
+        }));
+
+        let batches = {
+            let ack = ack.clone();
+            stream::iter(files)
+                .then(move |path| read_parquet(path, range, ack.clone()))
+                .map_ok(|batches| stream::iter(batches.into_iter().map(Ok::<_, Status>)))
+                .try_flatten()
+                .map_err(FlightError::from)
+        };
+        // As mosaicod: LZ4 frames, and messages of up to 25 MiB.
+        let options = match self.get_compression {
+            GetCompression::Lz4 => IpcWriteOptions::default()
+                .try_with_compression(Some(CompressionType::LZ4_FRAME))
+                .map_err(internal)?,
+            GetCompression::None => IpcWriteOptions::default(),
+        };
+        let data = FlightDataEncoderBuilder::new()
+            .with_options(options)
+            .with_max_flight_data_size(TARGET_ENCODE_MESSAGE_SIZE)
+            .build(batches)
+            .map_err(Status::from);
+
+        // Polled only once every batch has been sent. mosaicod sends no such
+        // message; clients that only read record batches skip it.
+        let trailer = stream::once(async move {
+            let mut ack = ack.lock().unwrap().clone();
+            ack.send_ms = started.elapsed().as_secs_f64() * 1e3;
+            eprintln!(
+                "sent {}: {} chunks, {} payload bytes from {} Parquet files in {:.1} ms \
+                 (read {:.1} ms, decode {:.1} ms)",
+                ack.locator,
+                ack.rows,
+                ack.payload_bytes,
+                ack.files,
+                ack.send_ms,
+                ack.read_ms,
+                ack.decode_ms
+            );
+            Ok(FlightData {
+                data_header: metadata_only_header().into(),
+                app_metadata: serde_json::to_vec(&ack).map_err(internal)?.into(),
+                ..FlightData::default()
+            })
+        });
+        Ok(data.chain(trailer).boxed())
+    }
+}
+
 #[tonic::async_trait]
 impl FlightService for VideoFlightService {
     type HandshakeStream = BoxStream<'static, Result<HandshakeResponse, Status>>;
@@ -328,8 +503,11 @@ impl FlightService for VideoFlightService {
         Err(Status::unimplemented("get_schema"))
     }
 
-    async fn do_get(&self, _: Request<Ticket>) -> Result<Response<Self::DoGetStream>, Status> {
-        Err(Status::unimplemented("do_get"))
+    async fn do_get(
+        &self,
+        request: Request<Ticket>,
+    ) -> Result<Response<Self::DoGetStream>, Status> {
+        Ok(Response::new(self.send(request.into_inner()).await?))
     }
 
     async fn do_exchange(
@@ -348,6 +526,7 @@ async fn main() -> anyhow::Result<()> {
     let service = FlightServiceServer::new(VideoFlightService {
         out_dir: args.out_dir.clone(),
         format: args.format,
+        get_compression: args.get_compression,
     })
     .max_decoding_message_size(args.max_decode_message_size)
     .max_encoding_message_size(MAX_ENCODE_MESSAGE_SIZE);

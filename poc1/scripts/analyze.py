@@ -7,17 +7,19 @@
 all under <results dir>:
 
 - videos.csv: the reports flattened into one row per video;
-- per-video/: the per-video charts, in three folders:
+- per-video/: the per-video charts, in four folders:
   - file-size-comparison/: the video size against an Arrow IPC file (.arrow)
     of the same batches and the Parquet files the server stored;
   - server-time/: the upload time, the server receive time and, inside it,
     the server's Parquet encode and write times (all-videos.png is also the
     upload time chart of RESULTS.md);
   - client-time/: the client steps before the upload: reading the file,
-    splitting it into record batches and encoding them as Flight messages.
+    splitting it into record batches and encoding them as Flight messages;
+  - download-time/: the download time (DoGet), the server send time and,
+    inside it, the server's Parquet read and decode times.
   Each folder holds one chart per video, <dataset>/<resolution>/<codec>/<video>.png,
-  and a README.md index; the two time folders also hold all-videos.png, the
-  same times for every video. per-video/README.md links the three folders.
+  and a README.md index; the three time folders also hold all-videos.png, the
+  same times for every video. per-video/README.md links the four folders.
 - RESULTS.md: the summary of the run.
 
 Everything listed above is generated output: it is written again on every
@@ -54,6 +56,7 @@ OUT = RESULTS / "per-video"
 SIZE_DIR = OUT / "file-size-comparison"
 SERVER_DIR = OUT / "server-time"
 CLIENT_DIR = OUT / "client-time"
+DOWNLOAD_DIR = OUT / "download-time"
 ALL_VIDEOS = "all-videos.png"
 RESULTS_MD = RESULTS / "RESULTS.md"
 MIB = 1024 * 1024
@@ -68,6 +71,8 @@ INK, MUTED, GRID, AXIS, BAND = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7", "#f4f
 SERVER_COLORS = ["#898781", "#c3c2b7", "#7b4fd6", "#1baf7a"]
 # Client steps: read, chunk, Flight encode.
 CLIENT_COLORS = ["#2a78d6", "#eda100", "#eb6834"]
+# Download steps: upload (for reference), download, server send, Parquet read, Parquet decode.
+DOWNLOAD_COLORS = ["#c3c2b7", "#898781", "#52514e", "#2a78d6", "#eb6834"]
 # One fixed color per codec.
 CODEC_COLORS = {"AV1": "#2a78d6", "H.264": "#eb6834", "H.265": "#1baf7a", "VP9": "#eda100"}
 
@@ -158,6 +163,14 @@ def load_reports() -> tuple[dict, list[dict]]:
                 "read_ms": round(v["read_ms"], 3),
                 "chunk_ms": round(v["chunk_ms"], 4),
                 "encode_ms": round(v["encode_ms"], 3),
+                "restored": v["restored"],
+                "restored_chunks": v["restored_chunks"],
+                "restored_bytes": v["restored_bytes"],
+                "download_wire_bytes": v["download_wire_bytes"],
+                "download_ms": round(v["download_ms"], 3),
+                "server_send_ms": round(v["server_send_ms"], 3),
+                "server_read_ms": round(v["server_read_ms"], 3),
+                "server_decode_ms": round(v["server_decode_ms"], 3),
             })
     return reports[0]["config"], rows
 
@@ -289,6 +302,27 @@ def client_time_chart(row: dict, path: Path) -> None:
     save(fig, path)
 
 
+def download_time_chart(row: dict, path: Path) -> None:
+    """Download time of one video, with the server's Parquet read and decode
+    times. Read and decode happen inside the server send, which happens inside
+    the download. The upload is shown for reference."""
+    fig, ax = plt.subplots(figsize=(7, 4.4), dpi=120, facecolor="white")
+    times = (row["upload_ms"], row["download_ms"], row["server_send_ms"], row["server_read_ms"],
+             row["server_decode_ms"])
+    time_bars(ax, times, DOWNLOAD_COLORS, ["Upload", "Download", "Server send", "Parquet read", "Parquet decode"],
+              row["file_bytes"] / MIB, per_mib={1, 3, 4})
+    ax.set_title(f"Download time for {size(row['file_bytes'])} of video", loc="left", fontsize=10,
+                 color=INK, fontweight="bold")
+    # `rest` is the Flight encode (LZ4) and the transfer to the client.
+    rest = times[2] - times[3] - times[4]
+    ax.text(0, -0.14, f"Server send: read {times[3] / times[2]:.0%} · decode {times[4] / times[2]:.0%} "
+            f"· other {ms(rest)} · {'identical to the video' if row['restored'] else 'NOT identical to the video'}",
+            transform=ax.transAxes, fontsize=9, color=INK, ha="left", va="top")
+    style(ax)
+    header(fig, row)
+    save(fig, path)
+
+
 def overview(rows, panels, title: str, subtitle: str, path: Path) -> None:
     """One panel per (CSV column, axis label) in `panels`, with a dot per
     video: one column per resolution, split by codec, with the median per
@@ -365,6 +399,16 @@ CLIENT_HINTS = {
     "Flight encode": "Each batch is serialized into Arrow IPC Flight messages before the upload starts; "
                      "encoding while uploading would overlap the two.",
 }
+DOWNLOAD_HINTS = {
+    "Parquet read": "Each Parquet file is read from disk before the previous batch is sent. Reading the next file "
+                    "while a batch is sent would overlap the two.",
+    "Parquet decode": "Each file is decoded on the blocking pool before the next one is read. Decoding while the "
+                      "next file is read would overlap the two.",
+    "Encoding and sending messages": "Server send time outside read and decode: encoding the Flight messages "
+                                     "(with LZ4, as mosaicod; it gains nothing on encoded video, see "
+                                     "`--get-compression none`), sending them (over loopback here) and waiting "
+                                     "for the client to check each chunk.",
+}
 SERVER_HINTS = {
     "Parquet encode": "Each batch is encoded before the next message is read, as in mosaicod's `do_put`. "
                       "Encoding a batch while the next one arrives would overlap the two.",
@@ -407,6 +451,12 @@ def write_charts(rows: list[dict]) -> None:
              "Client time before the upload per video",
              "Read: load the file; split: zero-copy record batches; encode: batches to Flight messages.",
              CLIENT_DIR / ALL_VIDEOS)
+    overview(rows, [("download_ms", "Download (ms, log scale)"),
+                    ("server_read_ms", "Parquet read (ms, log scale)"),
+                    ("server_decode_ms", "Parquet decode (ms, log scale)")],
+             "Download and server time per video",
+             "Download: DoGet request to the last chunk checked; read: Parquet files from disk; decode: "
+             "Parquet to record batches.", DOWNLOAD_DIR / ALL_VIDEOS)
 
     def total(key: str) -> float:
         return sum(r[key] for r in rows)
@@ -422,6 +472,9 @@ def write_charts(rows: list[dict]) -> None:
         CLIENT_DIR: ["| Video | Size | Read ms | Split ms | Flight encode ms | Total before upload ms "
                      "| Upload ms | Chart |",
                      "|---|---:|---:|---:|---:|---:|---:|---|"],
+        DOWNLOAD_DIR: ["| Video | Size | Identical | Upload ms | Download ms | Server send ms | Read ms | Decode ms "
+                       "| Download ms/MiB | Chart |",
+                       "|---|---:|:---:|---:|---:|---:|---:|---:|---:|---|"],
     }
     indexes = {
         SIZE_DIR: ["# File size comparison per video\n",
@@ -435,8 +488,9 @@ def write_charts(rows: list[dict]) -> None:
                    "statistics rows for mosaicod.",
                    f"- For reference, `.arrow`, one file per video, is {size_diff(arrow_total, video_total)} "
                    f"({(arrow_total / video_total - 1) * 100:+.3f}%). Both are well under 1% of the video, so size "
-                   "matters less than time: see [`../server-time/`](../server-time/README.md) and "
-                   "[`../client-time/`](../client-time/README.md).\n",
+                   "matters less than time: see [`../server-time/`](../server-time/README.md), "
+                   "[`../client-time/`](../client-time/README.md) and "
+                   "[`../download-time/`](../download-time/README.md).\n",
                    f"Generated by `scripts/analyze.py`: one chart per video ({len(rows)} in total) comparing "
                    "the video with an Arrow IPC file (`.arrow`) holding the same batches, which is how poc1 stored "
                    "videos before following mosaicod, and with the Parquet files the server stores now.\n",
@@ -472,6 +526,26 @@ def write_charts(rows: list[dict]) -> None:
                      f"In total the client spent {total('read_ms') / 1000:.2f} s reading files, "
                      f"{total('chunk_ms'):.2f} ms splitting them and {total('encode_ms') / 1000:.2f} s encoding "
                      f"Flight messages, for {size(video_total)} of video.\n"],
+        DOWNLOAD_DIR: ["# Download time per video\n",
+                       *improve_first({"Parquet read": total("server_read_ms"),
+                                       "Parquet decode": total("server_decode_ms"),
+                                       "Encoding and sending messages": total("server_send_ms")
+                                       - total("server_read_ms") - total("server_decode_ms")},
+                                      "the server send time", DOWNLOAD_HINTS),
+                       f"{total('restored')} of {len(rows)} videos came back byte-identical. The server send time "
+                       f"is {total('server_send_ms') / total('download_ms'):.0%} of the download time, and the "
+                       f"downloads take {total('download_ms') / 1000:.2f} s against "
+                       f"{total('upload_ms') / 1000:.2f} s of upload.\n",
+                       f"Generated by `scripts/analyze.py`: one chart per video ({len(rows)} in total) with its "
+                       "download time (one `DoGet`, from the request until the client has checked the last chunk "
+                       "against the video), the server send time and, inside it, the time the server spends "
+                       "reading the Parquet files from disk and decoding them. The upload time is shown for "
+                       "reference.\n",
+                       "## All videos\n",
+                       f"![Download and server time per video]({ALL_VIDEOS})\n",
+                       f"In total the server spent {total('server_read_ms') / 1000:.2f} s reading Parquet files "
+                       f"and {total('server_decode_ms') / 1000:.2f} s decoding them, for {size(video_total)} of "
+                       "video.\n"],
     }
     section = None
     for i, row in enumerate(rows, 1):
@@ -479,6 +553,7 @@ def write_charts(rows: list[dict]) -> None:
         size_chart(row, SIZE_DIR / rel)
         server_time_chart(row, SERVER_DIR / rel)
         client_time_chart(row, CLIENT_DIR / rel)
+        download_time_chart(row, DOWNLOAD_DIR / rel)
         group = f"{row['source']} · {row['resolution']} · {row['codec']}"
         if group != section:
             section = group
@@ -500,6 +575,11 @@ def write_charts(rows: list[dict]) -> None:
             f"| `{row['file']}` | {size(video)} | {row['read_ms']:.2f} | {row['chunk_ms']:.4f} "
             f"| {row['encode_ms']:.2f} | {row['read_ms'] + row['chunk_ms'] + row['encode_ms']:.2f} "
             f"| {row['upload_ms']:.1f} | {chart} |")
+        indexes[DOWNLOAD_DIR].append(
+            f"| `{row['file']}` | {size(video)} | {'yes' if row['restored'] else '**no**'} "
+            f"| {row['upload_ms']:.1f} | {row['download_ms']:.1f} | {row['server_send_ms']:.1f} "
+            f"| {row['server_read_ms']:.1f} | {row['server_decode_ms']:.1f} | {row['download_ms'] / mib:.2f} "
+            f"| {chart} |")
         if i % 100 == 0:
             print(f"{i}/{len(rows)}")
 
@@ -507,7 +587,7 @@ def write_charts(rows: list[dict]) -> None:
         (folder / "README.md").write_text("\n".join(lines) + "\n")
     (OUT / "README.md").write_text("\n".join([
         "# Per-video charts\n",
-        f"Generated by `scripts/analyze.py`, three charts for each of the {len(rows)} videos:\n",
+        f"Generated by `scripts/analyze.py`, four charts for each of the {len(rows)} videos:\n",
         f"- [`{SIZE_DIR.name}/`]({SIZE_DIR.name}/README.md): file size of the video, of an Arrow IPC file "
         "(`.arrow`) of the same batches and of the Parquet files the server stored.",
         f"- [`{SERVER_DIR.name}/`]({SERVER_DIR.name}/README.md): upload time, server receive time and the "
@@ -516,8 +596,12 @@ def write_charts(rows: list[dict]) -> None:
         f"- [`{CLIENT_DIR.name}/`]({CLIENT_DIR.name}/README.md): client steps before the upload (read the file, "
         f"split it into record batches, encode Flight messages), with [`{ALL_VIDEOS}`]({CLIENT_DIR.name}/{ALL_VIDEOS}) "
         "for all videos.",
+        f"- [`{DOWNLOAD_DIR.name}/`]({DOWNLOAD_DIR.name}/README.md): download time (`DoGet`), server send time and "
+        f"the server's Parquet read and decode time, with [`{ALL_VIDEOS}`]({DOWNLOAD_DIR.name}/{ALL_VIDEOS}) for all "
+        "videos.",
     ]) + "\n")
-    print(f"{len(rows)} videos -> {SIZE_DIR.name}/, {SERVER_DIR.name}/ and {CLIENT_DIR.name}/ in {OUT}")
+    print(f"{len(rows)} videos -> {SIZE_DIR.name}/, {SERVER_DIR.name}/, {CLIENT_DIR.name}/ and "
+          f"{DOWNLOAD_DIR.name}/ in {OUT}")
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +631,9 @@ def write_results_md(config: dict, rows: list[dict]) -> None:
     stored_files = sum(r["stored_files"] for r in rows)
     formats = sorted({r["format"] for r in rows})
     complete = sum(r["complete"] for r in rows)
+    restored = sum(r["restored"] for r in rows)
     slowest = sorted(rows, key=lambda r: r["upload_ms"], reverse=True)
+    slowest_download = max(rows, key=lambda r: r["download_ms"])
 
     groups = defaultdict(list)
     for r in rows:
@@ -558,6 +644,7 @@ def write_results_md(config: dict, rows: list[dict]) -> None:
     w("# poc1 results\n")
     w(f"Upload of every video under `datasets/` with the poc1 Arrow Flight client and server, "
       f"one `DoPut` per video, stored as mosaicod stores a topic: one Parquet file per record batch. "
+      f"Each video is then downloaded with one `DoGet` and compared with the original. "
       f"Generated by `poc1/scripts/analyze.py` on {date.today().isoformat()}.\n")
     w("## Setup\n")
     w(f"- Client and server on the same machine ({machine()}), over loopback.")
@@ -581,11 +668,20 @@ def write_results_md(config: dict, rows: list[dict]) -> None:
     w(f"| Parquet vs `.arrow` | {size_diff(stored_bytes, arrow_bytes)} "
       f"({extra_pct(stored_bytes, arrow_bytes):+.3f}%) |")
     w(f"| Total upload time | {sum(r['upload_ms'] for r in rows) / 1000:.2f} s |")
-    w(f"| Slowest upload | {slowest[0]['upload_ms']:.1f} ms (`{slowest[0]['file']}`) |\n")
+    w(f"| Slowest upload | {slowest[0]['upload_ms']:.1f} ms (`{slowest[0]['file']}`) |")
+    w(f"| Videos downloaded byte-identical (`DoGet`) | {restored} of {len(rows)} |")
+    w(f"| Total download time | {sum(r['download_ms'] for r in rows) / 1000:.2f} s |")
+    w(f"| Slowest download | {slowest_download['download_ms']:.1f} ms (`{slowest_download['file']}`) |\n")
 
     chunks = sum(r["chunks_received"] for r in rows)
     w("Findings:\n")
     w(f"- **The server received all the data** for {complete} of {len(rows)} videos.")
+    download_s, upload_s = (sum(r[k] for r in rows) / 1000 for k in ("download_ms", "upload_ms"))
+    w(f"- **{restored} of {len(rows)} videos came back byte-identical** from the Parquet files with `DoGet`: every "
+      f"chunk in order, at its offset, equal to the video. Downloading took {download_s:.2f} s against "
+      f"{upload_s:.2f} s of upload; the server spent {sum(r['server_read_ms'] for r in rows) / 1000:.2f} s "
+      f"reading the Parquet files and {sum(r['server_decode_ms'] for r in rows) / 1000:.2f} s decoding them. "
+      f"[`per-video/download-time/`]({link(DOWNLOAD_DIR / 'README.md')}) has the details.")
     w(f"- **The Parquet files are a little bigger than the video**, by about "
       f"{size((stored_bytes - video_bytes) / stored_files)} per file (Parquet footer, embedded "
       "Arrow schema, `timestamp_ns` bloom filter and the `timestamp_ns`, `chunk_index` and `offset` "
@@ -634,31 +730,42 @@ def write_results_md(config: dict, rows: list[dict]) -> None:
     w("## Upload and server time\n")
     w(f"![Upload, Parquet encode and write time per video]({link(SERVER_DIR / ALL_VIDEOS)})\n")
     w("Videos are grouped by resolution; the figure under each resolution is its median video size. "
-      "Big Buck Bunny (360p, 1080p) has one video per codec, SEPE 8K has 40. There are also three charts "
+      "Big Buck Bunny (360p, 1080p) has one video per codec, SEPE 8K has 40. There are also four charts "
       "per video: "
       f"[`per-video/file-size-comparison/`]({link(SIZE_DIR / 'README.md')}) "
       "compares the video, `.arrow` and Parquet sizes, "
       f"[`per-video/server-time/`]({link(SERVER_DIR / 'README.md')}) shows the upload "
       "time with the server's Parquet encode and write times, and "
       f"[`per-video/client-time/`]({link(CLIENT_DIR / 'README.md')}) shows the client "
-      "steps before the upload (read, split into batches, Flight encode).\n")
+      "steps before the upload (read, split into batches, Flight encode) and "
+      f"[`per-video/download-time/`]({link(DOWNLOAD_DIR / 'README.md')}) the download time with the server's "
+      "Parquet read and decode times.\n")
+
+    w("## Download and server time\n")
+    w(f"![Download, Parquet read and decode time per video]({link(DOWNLOAD_DIR / ALL_VIDEOS)})\n")
+    w("Download is measured by the client, from the `DoGet` request until it has checked the last chunk against "
+      "the video; the server reads the topic's Parquet files one at a time and streams them back as record "
+      f"batches. [`per-video/download-time/`]({link(DOWNLOAD_DIR / 'README.md')}) has one chart per video.\n")
 
     w("## By resolution and codec\n")
     w("Medians across the videos in each group. Upload is measured by the client, from the start "
       "of `DoPut` to the server's acknowledgement; server time is from the first message the "
-      "server receives until the last Parquet file is written.\n")
-    w("| Dataset | Resolution | Codec | Videos | Complete | Video | `.arrow` extra | Parquet extra | Parquet files "
-      "| Upload ms | Slowest upload ms | Server ms |")
-    w("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+      "server receives until the last Parquet file is written. Download is measured by the client, from the "
+      "`DoGet` request until the last chunk is checked; Identical counts the videos that came back "
+      "byte-identical.\n")
+    w("| Dataset | Resolution | Codec | Videos | Complete | Identical | Video | `.arrow` extra | Parquet extra "
+      "| Parquet files | Upload ms | Slowest upload ms | Server ms | Download ms |")
+    w("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for (source, _, resolution, codec), vs in sorted(groups.items(), key=lambda kv: kv[0][1:] + (kv[0][0],)):
         def med(key: str) -> float:
             return statistics.median(v[key] for v in vs)
         w(f"| {source} | {resolution} | {codec} | {len(vs)} | {sum(v['complete'] for v in vs)}/{len(vs)} "
-          f"| {size(med('file_bytes'))} "
+          f"| {sum(v['restored'] for v in vs)}/{len(vs)} | {size(med('file_bytes'))} "
           f"| {size_diff(med('arrow_bytes'), med('file_bytes'))} ({med('arrow_extra_pct'):+.3f}%) "
           f"| {size_diff(med('stored_bytes'), med('file_bytes'))} ({med('extra_pct'):+.3f}%) "
           f"| {med('stored_files'):g} "
-          f"| {med('upload_ms'):.2f} | {max(v['upload_ms'] for v in vs):.2f} | {med('server_receive_ms'):.2f} |")
+          f"| {med('upload_ms'):.2f} | {max(v['upload_ms'] for v in vs):.2f} | {med('server_receive_ms'):.2f} "
+          f"| {med('download_ms'):.2f} |")
     w("")
 
     w("## Slowest uploads\n")
@@ -675,6 +782,15 @@ def write_results_md(config: dict, rows: list[dict]) -> None:
         for r in incomplete:
             w(f"| `{r['file']}` | {r['chunks_received']}/{r['chunks_sent']} "
               f"| {size(r['bytes_received'])} | {size(r['file_bytes'])} |")
+        w("")
+
+    not_restored = [r for r in rows if not r["restored"]]
+    if not_restored:
+        w("## Downloads that differ from the video\n")
+        w("| File | Chunks downloaded | Data downloaded | Video |\n|---|---:|---:|---:|")
+        for r in not_restored:
+            w(f"| `{r['file']}` | {r['restored_chunks']}/{r['chunks_sent']} "
+              f"| {size(r['restored_bytes'])} | {size(r['file_bytes'])} |")
         w("")
 
     w(f"The per-video data is in [`videos.csv`]({link(RESULTS / 'videos.csv')}), one row per video, and "
