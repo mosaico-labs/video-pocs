@@ -3,7 +3,9 @@
 A Rust client and server built on [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html).
 The client reads every video in a directory (by default `datasets/1080p`),
 splits it into chunks and uploads each video with its **own `DoPut` call**.
-The server stores each upload as an Arrow IPC file, `<video name>.arrow`.
+The server receives and stores each upload the way
+[mosaicod](https://github.com/mosaico-labs/mosaico) stores a topic: **one
+Parquet file per record batch** (see [Compatibility with mosaicod](#compatibility-with-mosaicod)).
 
 ## Repository layout
 
@@ -11,57 +13,78 @@ The server stores each upload as an Arrow IPC file, `<video name>.arrow`.
 poc1/
 ├── Cargo.toml, Cargo.lock
 ├── src/
-│   ├── lib.rs                 # chunk schema, splitting into record batches, server ack
+│   ├── lib.rs                 # chunk schema, DoPutCmd, locators, Parquet encoding, server ack
+│   ├── format.rs              # Parquet writer settings per serialization format
 │   └── bin/
 │       ├── client.rs          # reads videos, uploads them, checks and reports
-│       └── server.rs          # receives DoPut calls, writes .arrow files
+│       └── server.rs          # receives DoPut calls, writes Parquet files
 ├── scripts/
-│   ├── e2e.sh                 # end-to-end test on datasets/1080p
-│   ├── run-all.sh             # uploads every video under datasets/
-│   ├── flatten.py             # merges the reports into results/videos.csv
-│   ├── results_md.py          # writes results/RESULTS.md and results/upload-time.png
-│   └── per_video_charts.py    # one size chart per video in results/per-video/
+│   ├── run-all.sh             # uploads every video under datasets/ (or one folder, as an end-to-end test)
+│   └── analyze.py             # turns the reports into videos.csv, per-video/ and RESULTS.md
 ├── results/                   # latest full run (committed)
 │   ├── RESULTS.md             # summary, findings and tables
-│   ├── upload-time.png        # upload time per video
 │   ├── videos.csv             # one row per video
-│   ├── reports/               # client report per dataset folder (.json, .md)
-│   ├── per-video/             # video vs .arrow size chart per video, with README.md index
+│   ├── reports/               # JSON client report per dataset folder (raw data of videos.csv)
+│   ├── per-video/             # three charts per video, with README.md indexes
+│   │   ├── file-size-comparison/  # video vs .arrow vs Parquet size, one chart per video
+│   │   ├── server-time/       # upload, server receive, Parquet encode/write time; all-videos.png
+│   │   └── client-time/       # read, split into batches, Flight encode time; all-videos.png
 │   └── server.log
-├── e2e-out/                   # e2e.sh output (git-ignored)
-├── received/                  # .arrow files kept by run-all.sh with KEEP_ARROW=1 (git-ignored)
+├── received/                  # topics kept by run-all.sh with KEEP_DATA=1 (git-ignored)
 └── target/                    # Cargo build output (git-ignored)
 ```
 
 ## Data layout
 
-The Flight descriptor path is the video file name. Each record batch holds
-`--chunks-per-batch` chunks:
+Each video is a mosaicod topic with the locator `<sequence>/<topic>`. The
+sequence is the dataset folder name (or `--sequence`), the topic is the video
+file name; in both, every character other than letters, digits and `-`
+becomes `_`, because mosaicod rejects `.` and spaces in locators. For
+example `datasets/1080p/Big_Buck_Bunny_30MB_av1.mp4` becomes
+`1080p/Big_Buck_Bunny_30MB_av1_mp4`.
+
+Each record batch holds `--chunks-per-batch` chunks:
 
 | Column | Type | Meaning |
 |---|---|---|
+| `timestamp_ns` | `Int64` | Index column every mosaicod topic needs. Here it is the chunk index |
 | `chunk_index` | `UInt32` | Position of the chunk in the file |
 | `offset` | `UInt64` | Byte offset of the chunk in the file |
 | `data` | `Binary` | Raw bytes of the chunk |
 
-The video name and original file size are stored as schema metadata.
-Chunks hold the encoded bytes exactly as they are on disk. The video is not
-decoded or demuxed into frames.
+The video name and original file size are stored as schema metadata, which
+the Parquet files keep. Chunks hold the encoded bytes exactly as they are on
+disk. The video is not decoded or demuxed into frames, so `timestamp_ns` can't
+be a real presentation time. It only has to grow strictly: the mosaicod store
+optimizer sorts rows by `timestamp_ns` when it merges files, and equal values
+could reorder the chunks.
+
+The server writes each topic to:
+
+```
+<out-dir>/<sequence>/<topic>/metadata.json
+<out-dir>/<sequence>/<topic>/data/00000.parquet, 00001.parquet, ...
+```
+
+mosaicod uses the same `metadata.json` + `data/NNNNN.parquet` layout, but
+names the topic folder `tp_<ULID>` and keeps the locator in its database.
 
 ## What is measured
 
 For each video the server sends back what it received: chunk count, byte
-counts, a CRC32 of the reassembled data, how long it took and the size of the
-`.arrow` file it wrote. The client compares this with what it sent and
-reports:
+counts, a CRC32 of the reassembled data, how long it took and the number and
+size of the Parquet files it wrote. The client compares this with what it sent
+and reports:
 
 | Metric | What it covers |
 |---|---|
-| Video / `.arrow` size | Size of the original video and of the stored Arrow IPC file, and how much bigger the `.arrow` file is |
+| Video / `.arrow` / Parquet size | Size of the original video, of an Arrow IPC file (`.arrow`) holding the same batches, and of all its Parquet files, with the differences between them. `.arrow` is how poc1 stored videos before following mosaicod; the client computes its size from the batches it sends, so every report keeps the comparison. Charted for every video in `results/per-video/file-size-comparison/` |
+| Parquet files | One per record batch; the client checks that it matches the batches it sent |
 | Received | Whether the server got every chunk and every byte with a matching CRC32 |
-| Upload | From the start of `DoPut` until the server acknowledges it |
-| Server receive | From the first message the server gets until the `.arrow` file is written |
-| Read, Chunk, Encode | Client steps before the upload: loading the file, splitting it into record batches (zero-copy slices) and serializing them into Flight messages |
+| Upload | From the start of `DoPut` until the server acknowledges it. Charted in `results/per-video/server-time/` with the server times |
+| Server receive | From the first message the server gets until the last Parquet file is written |
+| Server encode, write | Time the server spends encoding the Parquet files and writing them to disk. Charted in `results/per-video/server-time/`: one chart per video, and `all-videos.png` for all videos |
+| Read, Chunk, Encode | Client steps before the upload: loading the file, splitting it into record batches (zero-copy slices) and serializing them into Flight messages. Charted in `results/per-video/client-time/`: one chart per video, and `all-videos.png` for all videos |
 
 The client writes every report before exiting. If any video was not
 received completely, the summary lists what differs and the client exits with
@@ -73,60 +96,45 @@ an error.
 cd poc1
 cargo run --release --bin server -- --addr 127.0.0.1:50051 --out-dir received
 # in another terminal
-cargo run --release --bin client -- --dataset ../datasets/1080p --report report.json --markdown summary.md
+cargo run --release --bin client -- --dataset ../datasets/1080p --report report.json
 ```
 
 Run `--help` on either binary for all options (`--chunk-size`,
-`--chunks-per-batch`, ...).
+`--chunks-per-batch`, `--format`, ...).
+
+`--chunk-size` × `--chunks-per-batch` is the amount of video in each Parquet
+file. It must fit in one gRPC message: at most 50 MiB (mosaicod's default
+limit) minus 64 KiB of headroom. Change it on both sides with
+`--max-message-size` (client) and `--max-decode-message-size` (server).
 
 ## End-to-end test
 
 A quick check that client and server work together, on the 4 videos in
-`datasets/1080p` (about 120 MB). Use it after changing the code; use
+`datasets/1080p` (119.39 MiB). Use it after changing the code; use
 [Running on every dataset](#running-on-every-dataset) to measure everything.
+It is `run-all.sh` on one folder, writing to a folder outside the repository
+so the committed results stay untouched:
 
 ```sh
-poc1/scripts/e2e.sh
+DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p poc1/scripts/run-all.sh
 ```
 
-The script:
-
-1. builds both binaries in release mode;
-2. starts the server, which stores the `.arrow` files in `poc1/e2e-out/received/`;
-3. runs the client on `datasets/1080p`. The client fails if the server did
-   not receive every chunk and byte with a matching CRC32;
-4. checks that a non-empty `.arrow` file was stored for each video;
-5. stops the server and prints `e2e passed`, or exits with an error.
-
-Everything goes to `poc1/e2e-out/` (ignored by git), which is cleared at the
-start of each run:
-
-| File | Content |
-|---|---|
-| `summary.md` | The client's Markdown summary, also printed to the terminal |
-| `report.json` | The full client report |
-| `server.log` | The server's log, one line per stored video |
-| `received/` | The `.arrow` files the server wrote |
-
-It accepts these environment variables:
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `DATASET` | `datasets/1080p` | Folder of videos to upload |
-| `OUT_DIR` | `poc1/e2e-out/` | Where the files above go |
-| `ADDR` | `127.0.0.1:50051` | Server listen address |
-| `CLIENT_ARGS` | none | Extra client flags |
+The script fails if the client reports a chunk, byte or CRC32 mismatch, or if
+the server did not store a `metadata.json` and Parquet files for every video.
+It prints `all videos received and stored` when everything worked. The client
+report is in `/tmp/poc1-1080p/reports/1080p.json`; set `KEEP_DATA=1` to also
+keep the stored topics in `poc1/received/`.
 
 For example, to test 512 KiB chunks with 4 chunks per record batch:
 
 ```sh
-CLIENT_ARGS="--chunk-size 524288 --chunks-per-batch 4" poc1/scripts/e2e.sh
+DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p \
+  CLIENT_ARGS="--chunk-size 524288 --chunks-per-batch 4" \
+  poc1/scripts/run-all.sh   # 512 KiB chunks, 2 MiB per file
 ```
 
-The [`poc1` workflow](../.github/workflows/poc1.yml) runs the unit tests and
-this script on GitHub Actions when started from the Actions page ("Run
-workflow"). It adds `summary.md` to the job page and uploads `summary.md`,
-`report.json` and `server.log` as the `poc1-e2e` artifact.
+To also get the charts and summary of that run, add
+`uv run poc1/scripts/analyze.py /tmp/poc1-1080p`.
 
 ## Running on every dataset
 
@@ -135,44 +143,44 @@ video under `datasets/` is uploaded, and the measurements are turned into a
 summary and charts.
 
 **Requirements:** Rust (to build the client and server), Python 3 and
-[`uv`](https://docs.astral.sh/uv/). `uv` installs `matplotlib` for the chart
-scripts on first run. `datasets/LargeFiles` is optional: without it, only the
-tracked `datasets/360p` and `datasets/1080p` videos are uploaded.
+[`uv`](https://docs.astral.sh/uv/). `uv` installs `matplotlib` for
+`analyze.py` on first run. `datasets/LargeFiles` is optional: without it, only
+the tracked `datasets/360p` and `datasets/1080p` videos are uploaded.
 
-Run the four steps from the repository root, in order:
+Run the two steps from the repository root, in order:
 
 ```sh
 # 1. Upload every video and write one report per dataset folder
 poc1/scripts/run-all.sh
 
-# 2. Merge the reports into one CSV, one row per video
-python3 poc1/scripts/flatten.py
-
-# 3. Write the summary and the upload time chart
-uv run poc1/scripts/results_md.py
-
-# 4. Optional: one video vs .arrow size chart per video
-uv run poc1/scripts/per_video_charts.py
+# 2. Turn the reports into the CSV, the per-video charts and the summary
+uv run poc1/scripts/analyze.py
 ```
 
 | Step | Script | Writes to `poc1/results/` |
 |---|---|---|
-| 1 | `run-all.sh` | `reports/<folder>.json` and `.md`, `server.log` |
-| 2 | `flatten.py` | `videos.csv` |
-| 3 | `results_md.py` | `RESULTS.md`, `upload-time.png` |
-| 4 | `per_video_charts.py` | `per-video/<dataset>/<resolution>/<codec>/<video>.png`, `per-video/README.md` |
+| 1 | `run-all.sh` | `reports/<folder>.json`, `server.log` |
+| 2 | `analyze.py` | `videos.csv`; `per-video/{file-size-comparison,server-time,client-time}/<dataset>/<resolution>/<codec>/<video>.png`, `all-videos.png` in the two time folders and a `README.md` index in each folder that starts with what to improve first, computed from the data; `RESULTS.md` |
 
-Step 1 deletes `poc1/results/` before it starts, so always run the later
-steps after it. Then commit `poc1/results/`: it holds only data meant for the
-repository, and the paths in the reports are relative to the repository.
+Step 1 deletes `poc1/results/` before it starts, so always run step 2 after
+it. Then commit `poc1/results/`: it holds only data meant for the repository,
+and the paths in the reports are relative to the repository. `analyze.py`
+saves the charts as PNGs without metadata, and the per-video ones with 256
+colors (under half the size of matplotlib's own PNGs, with no visible
+difference), so a chart file only
+changes when its numbers do. The file-size charts in particular stay the same
+across runs with the same settings.
 
 **How step 1 works.** `run-all.sh` builds the binaries, starts the server once
 and runs the client on each folder that directly holds videos, for example
-`datasets/1080p` or `datasets/LargeFiles/480p/AV1`. A client failure on one
-folder is reported and the script moves on to the next, exiting with an error
-at the end. The server writes the `.arrow` files to a temporary folder that is
-emptied after each dataset folder and removed at the end, because the reports
-already record their sizes.
+`datasets/1080p` or `datasets/LargeFiles/480p/AV1`. After each folder it
+checks that the server stored a `metadata.json` and Parquet files for every
+video. A failure on one folder is reported and the script moves on to the
+next, exiting with an error at the end. Each folder is its own mosaicod
+sequence, named after its path (for example `LargeFiles_480p_AV1`). The server
+writes the topics to a temporary folder that is emptied after each dataset
+folder and removed at the end, because the reports already record their
+sizes.
 
 Step 1 accepts these environment variables:
 
@@ -181,18 +189,106 @@ Step 1 accepts these environment variables:
 | `DATASETS` | `datasets/` | Folder to scan for videos |
 | `OUT_DIR` | `poc1/results/` | Where the reports go |
 | `ADDR` | `127.0.0.1:50051` | Server listen address |
-| `CLIENT_ARGS` | none | Extra client flags, e.g. `"--chunk-size 524288"` |
-| `KEEP_ARROW` | `0` | `1` keeps the `.arrow` files in `poc1/received/` (ignored by git; about 28 GB with `LargeFiles`) |
+| `CLIENT_ARGS` | none | Extra client flags, e.g. `"--chunk-size 524288"` (512 KiB) |
+| `SERVER_ARGS` | none | Extra server flags, e.g. `"--format image"` |
+| `KEEP_DATA` | `0` | `1` keeps the topics in `poc1/received/` (ignored by git; about 28 GiB with `LargeFiles`) |
 
-For example, to try 512 KiB chunks on the 1080p videos only, writing to a
-separate folder so the committed results stay untouched:
+## `.arrow` vs Parquet
 
-```sh
-DATASETS=datasets/1080p OUT_DIR=/tmp/poc1-1080p CLIENT_ARGS="--chunk-size 524288" \
-  poc1/scripts/run-all.sh
-python3 poc1/scripts/flatten.py /tmp/poc1-1080p
-uv run poc1/scripts/results_md.py /tmp/poc1-1080p
-```
+Before following mosaicod, the server stored each video as one Arrow IPC file
+(`.arrow`). The client still computes the size of that file from the batches
+it sends, so every report, `results/videos.csv`, the per-video charts and the
+"`.arrow` vs Parquet" table in [`results/RESULTS.md`](results/RESULTS.md) keep
+the comparison. From the committed full run (728 videos, 1 MiB per Parquet
+file, `video` format):
+
+| Dataset | Video | `.arrow` vs video | Parquet vs video | Parquet vs `.arrow` | Parquet files |
+|---|---:|---:|---:|---:|---:|
+| Big Buck Bunny 360p | 108.57 MiB | +96.8 KiB (+0.087%) | +141.0 KiB (+0.127%) | +44.2 KiB | 111 |
+| Big Buck Bunny 1080p | 119.39 MiB | +106.7 KiB (+0.087%) | +156.2 KiB (+0.128%) | +49.5 KiB | 123 |
+| SEPE 8K 480p | 499.72 MiB | +592.8 KiB (+0.116%) | +710.2 KiB (+0.139%) | +117.4 KiB | 569 |
+| SEPE 8K 720p | 749.89 MiB | +793.9 KiB (+0.103%) | +1010.7 KiB (+0.132%) | +216.8 KiB | 809 |
+| SEPE 8K 1K | 1.15 GiB | +1.13 MiB (+0.096%) | +1.51 MiB (+0.129%) | +396.3 KiB | 1,241 |
+| SEPE 8K 2K | 2.28 GiB | +2.07 MiB (+0.088%) | +2.92 MiB (+0.125%) | +874.8 KiB | 2,391 |
+| SEPE 8K 4K | 5.06 GiB | +4.40 MiB (+0.085%) | +6.41 MiB (+0.124%) | +2.01 MiB | 5,245 |
+| SEPE 8K 8K | 17.91 GiB | +15.14 MiB (+0.083%) | +22.53 MiB (+0.123%) | +7.39 MiB | 18,405 |
+| **Total** | 27.85 GiB | +24.28 MiB (+0.085%) | +35.34 MiB (+0.124%) | +11.06 MiB (+0.039%) | 28,894 |
+
+Both stay within 0.14% of the video size. `.arrow` adds about 880 B per
+1 MiB chunk (message framing and the `timestamp_ns`, `chunk_index` and
+`offset` columns) plus one footer per video. Parquet adds about 1.3 KiB per
+file, because every file has its own footer, embedded schema and
+`timestamp_ns` bloom filter, so it costs 0.02–0.04% more than `.arrow`.
+Larger record batches (`--chunks-per-batch`) would make fewer Parquet files
+and shrink that gap.
+
+## Compatibility with mosaicod
+
+The server follows mosaicod's `DoPut` handling
+(`mosaicod-grpc-flight/src/endpoint/do_put.rs`) and storage
+(`mosaicod-rw`), so the client would work against mosaicod and the stored
+sizes match what mosaicod would write:
+
+| | mosaicod | poc1 server |
+|---|---|---|
+| Descriptor | CMD holding a protobuf `DoPutCmd { locator, topic_uuid }`; PATH is rejected | Same |
+| First message | Descriptor and schema together | Same |
+| Schema | Must have `timestamp_ns: Int64` | Same, plus `chunk_index: UInt32` and `data: Binary` |
+| Later messages | Record batches only; a schema or empty message fails the upload | Same |
+| Storage | One Parquet file per record batch, `tp_<ULID>/data/NNNNN.parquet` + `metadata.json` | One Parquet file per record batch, `<sequence>/<topic>/data/NNNNN.parquet` + `metadata.json` |
+| Writer settings | Chosen by the topic's serialization format | Same settings, chosen with `--format` |
+| Message size limit | 50 MiB by default | Same (`--max-decode-message-size`) |
+| Existing topic | Rejected unless the topic is empty | Rejected if the topic folder exists |
+
+What the poc does not do:
+
+- **Topic creation.** mosaicod needs the sequence and topic created with
+  `do_action` beforehand, and checks the UUID in `DoPutCmd` against the
+  topic's. Here the client sends a random UUID and the server only checks that
+  it parses.
+- **Database and statistics.** mosaicod writes a row of column statistics for
+  every Parquet file and limits how many batches it encodes at once.
+- **Store optimizer.** mosaicod later merges a topic's files into ~256 MiB
+  files, sorted by `timestamp_ns`. Until then, every
+  `--chunk-size` × `--chunks-per-batch` bytes of video is one file: with the
+  defaults the largest video here (`026_h264_8K.mp4`, 258.91 MiB) is 259 files,
+  and a 1 GiB video would be 1,024.
+- **Acknowledgement.** mosaicod answers `DoPut` with an empty stream, no
+  `PutResult` at all; the JSON
+  `PutAck` exists only for this poc's checks.
+
+## The `video` serialization format
+
+mosaicod has three serialization formats (`default`, `ragged`, `image`), none
+designed for encoded video. `src/format.rs` adds a proposed **`video`**
+format, the server default, which would be `FORMAT_VIDEO = 4` in
+`proto/mosaico/v1/core.proto`:
+
+- **`data` uncompressed.** The bitstream is already entropy coded, so ZSTD
+  costs CPU for almost no gain.
+- **No dictionary encoding and no statistics** on the payload columns, as in
+  `image`: chunks never repeat, and min/max of binary data is useless.
+- **`timestamp_ns` as in `image`**: uncompressed, with page statistics and a
+  bloom filter, so mosaicod's time range queries work the same way.
+
+The four formats on `datasets/1080p` (4 videos, 119.39 MiB, 123 Parquet
+files, 1 MiB per file; one run of the end-to-end test with `SERVER_ARGS="--format ..."`
+per format, on loopback). The first row is the Arrow IPC file (`.arrow`) of
+the same batches, as poc1 stored it before, for reference:
+
+| Storage | Size | vs video | vs `.arrow` | Server encode ms | Upload ms |
+|---|---:|---:|---:|---:|---:|
+| `.arrow` (one file per video) | 119.50 MiB | +106.7 KiB (+0.087%) | | | |
+| Parquet `default` | 119.60 MiB | +211.2 KiB (+0.173%) | +104.5 KiB | 18.68 | 109.84 |
+| Parquet `ragged` | 119.54 MiB | +150.5 KiB (+0.123%) | +43.8 KiB | 41.29 | 108.13 |
+| Parquet `image` | 119.54 MiB | +150.5 KiB (+0.123%) | +43.8 KiB | 41.86 | 104.55 |
+| Parquet `video` | 119.55 MiB | +156.2 KiB (+0.128%) | +49.5 KiB | 20.56 | 82.43 |
+
+ZSTD saves 5.7 KiB on 119 MiB of video (0.005%) and doubles the encode time.
+`default` encodes as fast as `video` but stores 55 KiB more. Every Parquet
+format costs a little more than `.arrow`, because each 1 MiB file carries its
+own footer, schema and bloom filter; [`.arrow` vs Parquet](#arrow-vs-parquet)
+has the numbers for every dataset.
 
 ## Notes
 
