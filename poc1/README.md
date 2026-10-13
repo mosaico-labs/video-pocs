@@ -7,6 +7,34 @@ The server receives and stores each upload the way
 [mosaicod](https://github.com/mosaico-labs/mosaico) stores a topic: **one
 Parquet file per record batch** (see [Compatibility with mosaicod](#compatibility-with-mosaicod)).
 
+## Data flow
+
+For each video:
+
+```mermaid
+sequenceDiagram
+    participant D as Video file<br/>(datasets/...)
+    participant C as Client
+    participant S as Server
+    participant P as Parquet files<br/>(sequence/topic/)
+
+    D->>C: read whole file
+    Note over C: split into chunks (--chunk-size)<br/>→ record batches (--chunks-per-batch)
+
+    rect rgba(127,127,127,0.1)
+    Note over C,S: Upload: one DoPut per video
+    C->>S: DoPutCmd { locator, topic_uuid } + schema
+    S->>P: write metadata.json
+    loop each record batch
+        C->>S: record batch
+        S->>P: encode and write data/NNNNN.parquet
+    end
+    S-->>C: PutAck (chunks, bytes, CRC32, Parquet files, times)
+    end
+
+    Note over C: compare the PutAck with what was sent<br/>(chunks, bytes, CRC32, Parquet files)
+```
+
 ## Repository layout
 
 ```
