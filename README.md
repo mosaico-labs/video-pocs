@@ -9,6 +9,7 @@ and **VP9**, from 360p up to 8K.
 ```
 datasets/
 ├── 360p/          # Big Buck Bunny, 640x360   (tracked in git)
+├── 720p/          # Big Buck Bunny, 1280x720  (tracked in git)
 ├── 1080p/         # Big Buck Bunny, 1920x1080 (tracked in git)
 └── LargeFiles/    # 480p–8K clips, raw YUV    (git-ignored, download locally)
 poc1/              # Rust Arrow Flight client/server for chunked video upload (mosaicod-compatible)
@@ -31,9 +32,8 @@ poc1/              # Rust Arrow Flight client/server for chunked video upload (m
 | Resolution | AV1 | H.264 | H.265 | VP9 |
 |---|---|---|---|---|
 | 360p (640x360) | `Big_Buck_Bunny_20MB_av1.mp4` | `Big_Buck_Bunny_30MB_h264.mp4` | `Big_Buck_Bunny_28MB_h265.mp4` | `Big_Buck_Bunny_30MB_vp9.webm` |
+| 720p (1280x720) | `Big_Buck_Bunny_30MB_av1.mp4` | `Big_Buck_Bunny_30MB_h264.mp4` | `Big_Buck_Bunny_30MB_h265.mp4` | `Big_Buck_Bunny_30MB_vp9.webm` |
 | 1080p (1920x1080) | `Big_Buck_Bunny_30MB_av1.mp4` | `Big_Buck_Bunny_30MB_h264.mp4` | `Big_Buck_Bunny_30MB_h265.mp4` | `Big_Buck_Bunny_30MB_vp9.webm` |
-
-test-videos.co.uk also provides 720p versions, which are not included here.
 
 Lossless sources of Big Buck Bunny:
 
