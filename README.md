@@ -83,22 +83,9 @@ whatever mosaicod's internal representation is:
 | [Video Sequences](#video-sequences) | Ordered, self-contained video files |
 | [Video Chunks](#video-chunks) | One video file, cut into temporal chunks |
 
-Each one is a folder under `datasets/`:
-
-```
-datasets/
-├── ImageSequence/          # Image Sequence: PNG frames
-│   └── 001/ 002/ 003/      # one SEPE 8K sequence each, 300 frames
-├── VideoSequences/         # Video Sequences
-│   └── AV1/4K/             # Earth_000.mp4 … Earth_010.mp4
-└── VideoChunks/            # Video Chunks: one video per file
-    ├── BigBuckBunny/       # 360p/ 720p/ 1080p/, one video per codec
-    ├── YouTube/            # AV1-4K/ AV1-8K/
-    ├── SEPE/               # <resolution>/<codec>/, 40 videos each
-    └── UltraVideoGroup/    # 4K-raw/raw.yuv
-```
-
-The next sections describe each dataset.
+Each dataset has its own folder under `datasets/`, named after it (for
+example `datasets/ImageSequence/`). The following sections describe them one by
+one.
 
 ### Image Sequence
 
@@ -109,7 +96,7 @@ A sequence of PNG images, all with the same resolution and pixel format.
 The frames come from the
 [SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset), which
 publishes every sequence as lossless PNG frames in addition to the encoded
-videos (see [Video Chunks](#sepe-8k)), one Google Drive folder per
+videos (see [SEPE 8K](#sepe-8k)), one Google Drive folder per
 sequence: [001](https://drive.google.com/drive/folders/1wX3zV3zAJcS7l59DykFUdKLYP6daCkDd),
 [002](https://drive.google.com/drive/folders/1J6EYEN6rjyiHzX5Hf9_wMHrQcRB5f1j3),
 [003](https://drive.google.com/drive/folders/1veJuOduzKV0UUrrx_Rk2zRwDhOp7UOHn).
@@ -141,7 +128,7 @@ into one video without re-encoding.
 
 **`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`**:
 the YouTube video `Earth_10_minutes.mp4` from
-[Video Chunks](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
+[YouTube](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
 `yuv420p10le`, HDR PQ, 614.73 s, 2.13 GB, no audio), split into 11 files of
 about 200 MB each.
 
