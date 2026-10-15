@@ -145,8 +145,10 @@ summary and charts.
 
 **Requirements:** Rust (to build the client and server), Python 3 and
 [`uv`](https://docs.astral.sh/uv/). `uv` installs `matplotlib` for
-`analyze.py` on first run. `datasets/VideoToChunks/SEPE` is optional: without it, only
-the tracked Big Buck Bunny and YouTube videos are uploaded.
+`analyze.py` on first run. The videos come from
+[`scripts/build-datasets.sh`](../scripts/build-datasets.sh); build at least
+`bbb` first (`scripts/build-datasets.sh bbb`). Only the folders that exist
+are uploaded, so `sepe` and `youtube` are optional.
 
 Run the two steps from the repository root, in order:
 
