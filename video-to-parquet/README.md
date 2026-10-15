@@ -35,33 +35,6 @@ sequenceDiagram
     Note over C: compare the PutAck with what was sent<br/>(chunks, bytes, CRC32, Parquet files)
 ```
 
-## Repository layout
-
-```
-video-to-parquet/
-├── Cargo.toml, Cargo.lock
-├── src/
-│   ├── lib.rs                 # chunk schema, DoPutCmd, locators, Parquet encoding, server ack
-│   ├── format.rs              # Parquet writer settings per serialization format
-│   └── bin/
-│       ├── client.rs          # reads videos, uploads them, checks and reports
-│       └── server.rs          # receives DoPut calls, writes Parquet files
-├── scripts/
-│   ├── run-all.sh             # uploads every video under datasets/VideoToChunks/ (or one folder, as an end-to-end test)
-│   └── analyze.py             # turns the reports into videos.csv, per-video/ and RESULTS.md
-├── results/                   # latest full run (committed)
-│   ├── RESULTS.md             # summary, findings and tables
-│   ├── videos.csv             # one row per video
-│   ├── reports/               # JSON client report per dataset folder (raw data of videos.csv)
-│   ├── per-video/             # three charts per video, with README.md indexes
-│   │   ├── file-size-comparison/  # video vs .arrow vs Parquet size, one chart per video
-│   │   ├── server-time/       # upload, server receive, Parquet encode/write time; all-videos.png
-│   │   └── client-time/       # read, split into batches, Flight encode time; all-videos.png
-│   └── server.log
-├── received/                  # topics kept by run-all.sh with KEEP_DATA=1 (git-ignored)
-└── target/                    # Cargo build output (git-ignored)
-```
-
 ## Data layout
 
 Each video is a mosaicod topic with the locator `<sequence>/<topic>`. The
