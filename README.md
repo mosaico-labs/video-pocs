@@ -52,7 +52,7 @@ videos (see [Video To Chunks](#sepe-8k-not-tracked)).
 
 | Folder | Frames | Resolution | Pixel format | Size | Git |
 |---|---|---|---|---|---|
-| `datasets/ImageSequence/001/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~9.3 GiB | tracked |
+| `datasets/ImageSequence/001/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~9.3 GiB | first 50 frames (`000`–`049`, ~1.7 GB) tracked, the rest ignored |
 | `datasets/ImageSequence/002/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~5.9 GiB | ignored |
 | `datasets/ImageSequence/003/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~7.0 GiB | ignored |
 
@@ -75,9 +75,9 @@ A series of self-contained video files, of any length. Each video is decodable
 on its own, and the videos are coherent with each other, so they can be joined
 into one video without re-encoding.
 
-**`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`** (tracked):
+**`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`** (not tracked, too large for GitHub; rebuild them with the commands below):
 the YouTube video `Earth_10_minutes.mp4` from
-[Video To Chunks](#youtube-tracked) (AV1, 3840x2160, 59.94 fps, 10-bit
+[Video To Chunks](#youtube-not-tracked) (AV1, 3840x2160, 59.94 fps, 10-bit
 `yuv420p10le`, HDR PQ, 614.73 s, 2.13 GB, no audio), split into 11 files of
 about 200 MB each.
 
@@ -235,20 +235,21 @@ Lossless sources of Big Buck Bunny:
 - https://sciop.net/datasets/blender-bbb
 - https://archive.org/download/AV-LOSSLESS-TEST-MATERIAL/1920x1080/
 
-#### YouTube (tracked)
+#### YouTube (not tracked)
 
 AV1 videos downloaded from YouTube, video stream only (no audio), in
 `datasets/VideoToChunks/YouTube/AV1-<resolution>/`:
 
 | File | Source | Resolution | Frame rate | Pixel format | Duration | Size |
 |---|---|---|---|---|---|---|
-| `AV1-4K/Earth_10_minutes.mp4` (git-ignored) | [Earth in 10 Minutes 4K HDR](https://www.youtube.com/watch?v=zqpv2bySbr4) | 3840x2160 | 59.94 fps | `yuv420p10le`, HDR PQ | 614.73 s | 2.13 GB |
+| `AV1-4K/Earth_10_minutes.mp4` | [Earth in 10 Minutes 4K HDR](https://www.youtube.com/watch?v=zqpv2bySbr4) | 3840x2160 | 59.94 fps | `yuv420p10le`, HDR PQ | 614.73 s | 2.13 GB |
 | `AV1-4K/Japan_in_4K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 3840x2160 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 185 MB |
 | `AV1-8K/Japan_in_8K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 7680x4320 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 447 MB |
 
 The two Japan files are the same YouTube video, downloaded at two
-resolutions. The Earth video is git-ignored because of its size; it is
-tracked split into ~200 MB files in [Video Sequences](#video-sequences).
+resolutions. The folder is git-ignored because its files are larger than
+GitHub accepts. The Earth video is also split into ~200 MB files in
+[Video Sequences](#video-sequences).
 
 #### SEPE 8K (not tracked)
 
