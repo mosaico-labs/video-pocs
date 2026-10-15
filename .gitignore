@@ -3,4 +3,8 @@ datasets/VideoToChunks/UltraVideoGroup/
 .DS_Store
 datasets/ImageSequence/002/
 datasets/ImageSequence/003/
-datasets/VideoToChunks/YouTube/AV1-4K/Earth_10_minutes.mp4
+datasets/VideoToChunks/YouTube/
+datasets/VideoSequences/
+datasets/ImageSequence/001/*
+!datasets/ImageSequence/001/00[0-9]_8K.png
+!datasets/ImageSequence/001/0[1-4][0-9]_8K.png
