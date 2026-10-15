@@ -6,26 +6,6 @@ serialized and stored in mosaicod, and how they are decoded and transcoded.
 The videos are in **AV1**, **H.264**, **H.265 (HEVC)** and **VP9**, from 360p
 up to 8K.
 
-To inspect a video and extract its information run:
-
-```sh
-ffprobe -v error -select_streams v:0 \
-  -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt \
-  datasets/VideoToChunks/BigBuckBunny/1080p/Big_Buck_Bunny_30MB_av1.mp4
-```
-
-- `-v error`: print only errors, not ffprobe's banner and log. **Optional**: it
-  only keeps the output clean.
-- `-select_streams v:0`: look only at the first video stream. A file can also
-  hold audio or subtitle streams. **Removable** if the file has only one video stream.
-- `-show_entries stream=...`: print only these fields. Without it, ffprobe
-  prints no fields at all (`-v error` also hides its summary), so **mandatory**.
-  - `codec_name`: the compression format (`av1`, `h264`, `hevc`, `vp9`).
-  - `width`, `height`: frame size in pixels.
-  - `r_frame_rate`: frames per second, as a fraction (`30/1`, `60000/1001` = 59.94).
-  - `pix_fmt`: how each pixel's colors are stored, e.g. `yuv420p` (8-bit) or
-    `yuv420p10le` (10-bit).
-
 ## Proofs of concept
 
 | POC | Description |
@@ -34,13 +14,8 @@ ffprobe -v error -select_streams v:0 \
 
 ## Datasets
 
-The data is organized by how a video is handed to mosaicod:
-
-| Dataset | What it is |
-|---|---|
-| [Image Sequence](#image-sequence) | Temporally ordered images or frames |
-| [Video Sequences](#video-sequences) | Ordered, self-contained video files |
-| [Video To Chunks](#video-to-chunks) | One video file, cut into temporal chunks |
+The videos and images used by the proofs of concept: how to build them,
+how to inspect them, and how they are organized.
 
 ### Building the datasets
 
@@ -56,11 +31,11 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 
 | Name | Folder | Source | Download |
 |---|---|---|---|
-| `bbb` | `VideoToChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB |
-| `youtube` | `VideoToChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB |
+| `bbb` | `VideoChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB |
+| `youtube` | `VideoChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB |
 | `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) |
-| `sepe` | `VideoToChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB |
-| `uvg` | `VideoToChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) |
+| `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB |
+| `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) |
 | `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB |
 
 - **Requirements**: `curl`, `python3`, `ffmpeg`, `yt-dlp` (for `youtube`),
@@ -75,6 +50,56 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 - **Environment variables**: `DATASETS_DIR` builds somewhere else than
   `datasets/`. `JOBS` sets the number of parallel downloads (default 4).
 
+### Inspecting a video
+
+Once the datasets are built, to inspect a video and extract its information run:
+
+```sh
+ffprobe -v error -select_streams v:0 \
+  -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt \
+  datasets/VideoChunks/BigBuckBunny/1080p/Big_Buck_Bunny_30MB_av1.mp4
+```
+
+- `-v error`: print only errors, not ffprobe's banner and log. **Optional**: it
+  only keeps the output clean.
+- `-select_streams v:0`: look only at the first video stream. A file can also
+  hold audio or subtitle streams. **Removable** if the file has only one video stream.
+- `-show_entries stream=...`: print only these fields. Without it, ffprobe
+  prints no fields at all (`-v error` also hides its summary), so **mandatory**.
+  - `codec_name`: the compression format (`av1`, `h264`, `hevc`, `vp9`).
+  - `width`, `height`: frame size in pixels.
+  - `r_frame_rate`: frames per second, as a fraction (`30/1`, `60000/1001` = 59.94).
+  - `pix_fmt`: how each pixel's colors are stored, e.g. `yuv420p` (8-bit) or
+    `yuv420p10le` (10-bit).
+
+### Dataset structure
+
+The datasets follow the three ways a user can store video data in mosaicod,
+whatever mosaicod's internal representation is:
+
+| Dataset | What it is |
+|---|---|
+| [Image Sequence](#image-sequence) | Temporally ordered images or frames |
+| [Video Sequences](#video-sequences) | Ordered, self-contained video files |
+| [Video Chunks](#video-chunks) | One video file, cut into temporal chunks |
+
+Each one is a folder under `datasets/`:
+
+```
+datasets/
+├── ImageSequence/          # Image Sequence: PNG frames
+│   └── 001/ 002/ 003/      # one SEPE 8K sequence each, 300 frames
+├── VideoSequences/         # Video Sequences
+│   └── AV1/4K/             # Earth_000.mp4 … Earth_010.mp4
+└── VideoChunks/            # Video Chunks: one video per file
+    ├── BigBuckBunny/       # 360p/ 720p/ 1080p/, one video per codec
+    ├── YouTube/            # AV1-4K/ AV1-8K/
+    ├── SEPE/               # <resolution>/<codec>/, 40 videos each
+    └── UltraVideoGroup/    # 4K-raw/raw.yuv
+```
+
+The next sections describe each dataset.
+
 ### Image Sequence
 
 > Temporally ordered images or frames.
@@ -84,7 +109,7 @@ A sequence of PNG images, all with the same resolution and pixel format.
 The frames come from the
 [SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset), which
 publishes every sequence as lossless PNG frames in addition to the encoded
-videos (see [Video To Chunks](#sepe-8k)), one Google Drive folder per
+videos (see [Video Chunks](#sepe-8k)), one Google Drive folder per
 sequence: [001](https://drive.google.com/drive/folders/1wX3zV3zAJcS7l59DykFUdKLYP6daCkDd),
 [002](https://drive.google.com/drive/folders/1J6EYEN6rjyiHzX5Hf9_wMHrQcRB5f1j3),
 [003](https://drive.google.com/drive/folders/1veJuOduzKV0UUrrx_Rk2zRwDhOp7UOHn).
@@ -116,7 +141,7 @@ into one video without re-encoding.
 
 **`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`**:
 the YouTube video `Earth_10_minutes.mp4` from
-[Video To Chunks](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
+[Video Chunks](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
 `yuv420p10le`, HDR PQ, 614.73 s, 2.13 GB, no audio), split into 11 files of
 about 200 MB each.
 
@@ -249,17 +274,19 @@ Removing the same blocks from the source
 (`ffmpeg ... -c copy -bsf:v filter_units=remove_types=2`)
 gives exactly the same data as the joined video.
 
-### Video To Chunks
+### Video Chunks
 
 > A video represented as temporal chunks.
 
-One logical video file, cut into temporal byte chunks to be stored in
-mosaicod. The temporal byte chunks are valid videos inside the storage.
+One video, which the user stores and reads back as temporal chunks:
+consecutive pieces of the video, each covering a span of time, as MPEG-DASH
+produces them. Unlike [Video Sequences](#video-sequences), a chunk is not a
+standalone video: it is decoded together with the rest of the video.
 
 #### Big Buck Bunny
 
 10-second clips at 30 fps, 8-bit `yuv420p`, in
-`datasets/VideoToChunks/BigBuckBunny/<resolution>/`, downloaded from
+`datasets/VideoChunks/BigBuckBunny/<resolution>/`, downloaded from
 [test-videos.co.uk](https://test-videos.co.uk/). The size in each file name
 (e.g. `30MB`) is the target size of the encode.
 
@@ -277,7 +304,7 @@ Lossless sources of Big Buck Bunny:
 #### YouTube
 
 AV1 videos downloaded from YouTube with `yt-dlp`, video stream only (no audio),
-in `datasets/VideoToChunks/YouTube/AV1-<resolution>/`. The `yt-dlp` format
+in `datasets/VideoChunks/YouTube/AV1-<resolution>/`. The `yt-dlp` format
 is the YouTube stream that was downloaded:
 
 | File | Source | `yt-dlp` format | Resolution | Frame rate | Pixel format | Duration | Size |
@@ -292,7 +319,7 @@ resolutions. The Earth video is also split into ~200 MB files in
 
 #### SEPE 8K
 
-`datasets/VideoToChunks/SEPE/` (~28 GiB) is the
+`datasets/VideoChunks/SEPE/` (~28 GiB) is the
 [SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset#bitrates-used-for-each-video-codec-and-resolution-combination),
 downloaded from its
 [Google Drive folder of encoded videos](https://drive.google.com/drive/folders/1EvDYl2AYktNyiXnseTfHFZziX5fjXQ3E)
@@ -314,7 +341,7 @@ Every sequence is encoded in AV1, H.264 and HEVC at six resolutions:
 
 #### Ultra Video Group RiverBank (raw 4K)
 
-`datasets/VideoToChunks/UltraVideoGroup/4K-raw/raw.yuv` (~7 GiB) is the
+`datasets/VideoChunks/UltraVideoGroup/4K-raw/raw.yuv` (~7 GiB) is the
 uncompressed 4K sequence *RiverBank* from the
 [Ultra Video Group dataset](https://ultravideo.fi/dataset.html): 3840x2160,
 50 fps, 8-bit `yuv420p`, 600 frames (12 s). It is downloaded as
@@ -347,7 +374,7 @@ The frame rate cannot be read from the file; RiverBank's page gives 50 fps:
 
 ```sh
 ffplay -f rawvideo -video_size 3840x2160 -pixel_format yuv420p -framerate 50 \
-  datasets/VideoToChunks/UltraVideoGroup/4K-raw/raw.yuv
+  datasets/VideoChunks/UltraVideoGroup/4K-raw/raw.yuv
 ```
 
 #### Other sources (not used)
