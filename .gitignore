@@ -1,3 +1,5 @@
 datasets/VideoToChunks/SEPE/
 datasets/VideoToChunks/UltraVideoGroup/
 .DS_Store
+datasets/ImageSequence/002/
+datasets/ImageSequence/003/
