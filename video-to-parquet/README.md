@@ -1,7 +1,7 @@
 # video-to-parquet: video upload over Arrow Flight
 
 A Rust client and server built on [Arrow Flight](https://arrow.apache.org/docs/format/Flight.html).
-The client reads every video in a directory (by default `datasets/VideoToChunks/BigBuckBunny/1080p`),
+The client reads every video in a directory (by default `datasets/VideoChunks/BigBuckBunny/1080p`),
 splits it into chunks and uploads each video with its **own `DoPut` call**.
 The server receives and stores each upload the way
 [mosaicod](https://github.com/mosaico-labs/mosaico) stores a topic: **one
@@ -41,7 +41,7 @@ Each video is a mosaicod topic with the locator `<sequence>/<topic>`. The
 sequence is the dataset folder name (or `--sequence`), the topic is the video
 file name; in both, every character other than letters, digits and `-`
 becomes `_`, because mosaicod rejects `.` and spaces in locators. For
-example `datasets/VideoToChunks/BigBuckBunny/1080p/Big_Buck_Bunny_30MB_av1.mp4` becomes
+example `datasets/VideoChunks/BigBuckBunny/1080p/Big_Buck_Bunny_30MB_av1.mp4` becomes
 `1080p/Big_Buck_Bunny_30MB_av1_mp4`.
 
 Each record batch holds `--chunks-per-batch` chunks:
@@ -97,7 +97,7 @@ an error.
 cd video-to-parquet
 cargo run --release --bin server -- --addr 127.0.0.1:50051 --out-dir received
 # in another terminal
-cargo run --release --bin client -- --dataset ../datasets/VideoToChunks/BigBuckBunny/1080p --report report.json
+cargo run --release --bin client -- --dataset ../datasets/VideoChunks/BigBuckBunny/1080p --report report.json
 ```
 
 Run `--help` on either binary for all options (`--chunk-size`,
@@ -111,13 +111,13 @@ limit) minus 64 KiB of headroom. Change it on both sides with
 ## End-to-end test
 
 A quick check that client and server work together, on the 4 videos in
-`datasets/VideoToChunks/BigBuckBunny/1080p` (119.39 MiB). Use it after changing the code; use
+`datasets/VideoChunks/BigBuckBunny/1080p` (119.39 MiB). Use it after changing the code; use
 [Running on every dataset](#running-on-every-dataset) to measure everything.
 It is `run-all.sh` on one folder, writing to a folder outside the repository
 so the committed results stay untouched:
 
 ```sh
-DATASETS=datasets/VideoToChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p video-to-parquet/scripts/run-all.sh
+DATASETS=datasets/VideoChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p video-to-parquet/scripts/run-all.sh
 ```
 
 The script fails if the client reports a chunk, byte or CRC32 mismatch, or if
@@ -129,7 +129,7 @@ keep the stored topics in `video-to-parquet/received/`.
 For example, to test 512 KiB chunks with 4 chunks per record batch:
 
 ```sh
-DATASETS=datasets/VideoToChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p \
+DATASETS=datasets/VideoChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p \
   CLIENT_ARGS="--chunk-size 524288 --chunks-per-batch 4" \
   video-to-parquet/scripts/run-all.sh   # 512 KiB chunks, 2 MiB per file
 ```
@@ -140,7 +140,7 @@ To also get the charts and summary of that run, add
 ## Running on every dataset
 
 This is how the committed [`results/`](results/) folder is produced: every
-video under `datasets/VideoToChunks/` is uploaded, and the measurements are turned into a
+video under `datasets/VideoChunks/` is uploaded, and the measurements are turned into a
 summary and charts.
 
 **Requirements:** Rust (to build the client and server), Python 3 and
@@ -176,7 +176,7 @@ across runs with the same settings.
 
 **How step 1 works.** `run-all.sh` builds the binaries, starts the server once
 and runs the client on each folder that directly holds videos, for example
-`datasets/VideoToChunks/BigBuckBunny/1080p` or `datasets/VideoToChunks/SEPE/480p/AV1`. After each folder it
+`datasets/VideoChunks/BigBuckBunny/1080p` or `datasets/VideoChunks/SEPE/480p/AV1`. After each folder it
 checks that the server stored a `metadata.json` and Parquet files for every
 video. A failure on one folder is reported and the script moves on to the
 next, exiting with an error at the end. Each folder is its own mosaicod
@@ -189,7 +189,7 @@ Step 1 accepts these environment variables:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DATASETS` | `datasets/VideoToChunks/` | Folder to scan for videos |
+| `DATASETS` | `datasets/VideoChunks/` | Folder to scan for videos |
 | `OUT_DIR` | `video-to-parquet/results/` | Where the reports go |
 | `ADDR` | `127.0.0.1:50051` | Server listen address |
 | `CLIENT_ARGS` | none | Extra client flags, e.g. `"--chunk-size 524288"` (512 KiB) |
@@ -274,7 +274,7 @@ format, the server default, which would be `FORMAT_VIDEO = 4` in
 - **`timestamp_ns` as in `image`**: uncompressed, with page statistics and a
   bloom filter, so mosaicod's time range queries work the same way.
 
-The four formats on `datasets/VideoToChunks/BigBuckBunny/1080p` (4 videos, 119.39 MiB, 123 Parquet
+The four formats on `datasets/VideoChunks/BigBuckBunny/1080p` (4 videos, 119.39 MiB, 123 Parquet
 files, 1 MiB per file; one run of the end-to-end test with `SERVER_ARGS="--format ..."`
 per format, on loopback). The first row is the Arrow IPC file (`.arrow`) of
 the same batches, as video-to-parquet stored it before, for reference:

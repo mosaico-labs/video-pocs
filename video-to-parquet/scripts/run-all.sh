@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Uploads every video under datasets/VideoToChunks/ and keeps one JSON client report per folder.
+# Uploads every video under datasets/VideoChunks/ and keeps one JSON client report per folder.
 #
 # The client is run once for each folder that directly contains videos (for
-# example datasets/VideoToChunks/BigBuckBunny/1080p or datasets/VideoToChunks/SEPE/480p/AV1). The client fails if
+# example datasets/VideoChunks/BigBuckBunny/1080p or datasets/VideoChunks/SEPE/480p/AV1). The client fails if
 # the server did not receive every chunk and byte with a matching CRC32; after
 # each folder the script also checks that the server stored a metadata.json
 # and Parquet files for every video. Run it on one folder as an end-to-end test:
-#   DATASETS=datasets/VideoToChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p video-to-parquet/scripts/run-all.sh
+#   DATASETS=datasets/VideoChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p video-to-parquet/scripts/run-all.sh
 #
 # OUT_DIR only gets data meant to be committed. The server stores each video as
 # a mosaicod topic (metadata.json and Parquet files) in a temporary folder,
@@ -15,7 +15,7 @@
 # instead (ignored by git, ~28 GB for every dataset).
 #
 # Environment variables:
-#   DATASETS    root to scan                 (default: <repo>/datasets/VideoToChunks)
+#   DATASETS    root to scan                 (default: <repo>/datasets/VideoChunks)
 #   OUT_DIR     where results are written    (default: <video-to-parquet>/results)
 #   ADDR        server listen address        (default: 127.0.0.1:50051)
 #   CLIENT_ARGS extra client flags, e.g. "--chunk-size 524288"
@@ -25,7 +25,7 @@ set -euo pipefail
 
 POC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_DIR="$(cd "$POC_DIR/.." && pwd)"
-DATASETS="${DATASETS:-$REPO_DIR/datasets/VideoToChunks}"
+DATASETS="${DATASETS:-$REPO_DIR/datasets/VideoChunks}"
 OUT_DIR="${OUT_DIR:-$POC_DIR/results}"
 ADDR="${ADDR:-127.0.0.1:50051}"
 

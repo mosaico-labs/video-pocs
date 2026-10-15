@@ -8,11 +8,11 @@
 #   scripts/build-datasets.sh --verify sepe    # also check the SHA-256 of each file
 #
 # Datasets (folders under datasets/):
-#   bbb        VideoToChunks/BigBuckBunny        test-videos.co.uk            ~350 MB
-#   youtube    VideoToChunks/YouTube             YouTube, with yt-dlp         ~2.8 GB
+#   bbb        VideoChunks/BigBuckBunny          test-videos.co.uk            ~350 MB
+#   youtube    VideoChunks/YouTube               YouTube, with yt-dlp         ~2.8 GB
 #   sequences  VideoSequences/AV1/4K             split of the YouTube Earth video (needs youtube)
-#   sepe       VideoToChunks/SEPE                SEPE 8K, Google Drive        ~28 GB
-#   uvg        VideoToChunks/UltraVideoGroup     ultravideo.fi, .7z archive   ~3.8 GB (7 GB extracted)
+#   sepe       VideoChunks/SEPE                  SEPE 8K, Google Drive        ~28 GB
+#   uvg        VideoChunks/UltraVideoGroup       ultravideo.fi, .7z archive   ~3.8 GB (7 GB extracted)
 #   images     ImageSequence/{001,002,003}       SEPE 8K PNG frames, Drive    ~24 GB
 #
 # --verify compares every file with scripts/datasets.sha256, the checksums of
@@ -89,7 +89,7 @@ drive_fetch() {
 
 build_bbb() {
   log "Big Buck Bunny"
-  local dir="$DATASETS_DIR/VideoToChunks/BigBuckBunny" res codec size ext type
+  local dir="$DATASETS_DIR/VideoChunks/BigBuckBunny" res codec size ext type
   # <resolution> <codec> <size in the file name>
   while read -r res codec size; do
     if [ "$codec" = vp9 ]; then ext=webm type=webm; else ext=mp4 type=mp4; fi
@@ -123,7 +123,7 @@ youtube_fetch() {
 
 build_youtube() {
   log "YouTube"
-  local dir="$DATASETS_DIR/VideoToChunks/YouTube"
+  local dir="$DATASETS_DIR/VideoChunks/YouTube"
   # Formats: 701 = AV1 2160p60 HDR, 401 = AV1 2160p, 571 = AV1 4320p; video only.
   youtube_fetch zqpv2bySbr4 701 "$dir/AV1-4K/Earth_10_minutes.mp4"
   youtube_fetch m1jY2VLCRmY 401 "$dir/AV1-4K/Japan_in_4K.mp4"
@@ -133,7 +133,7 @@ build_youtube() {
 # Splits the Earth video into ~200 MB files, as described in the README.
 build_sequences() {
   log "Video Sequences"
-  local src="$DATASETS_DIR/VideoToChunks/YouTube/AV1-4K/Earth_10_minutes.mp4"
+  local src="$DATASETS_DIR/VideoChunks/YouTube/AV1-4K/Earth_10_minutes.mp4"
   local dir="$DATASETS_DIR/VideoSequences/AV1/4K" tmp cuts
   [ -s "$dir/Earth_000.mp4" ] && return 0
   [ -s "$src" ] || youtube_fetch zqpv2bySbr4 701 "$src"
@@ -164,7 +164,7 @@ build_sepe() {
   log "SEPE 8K videos"
   # Drive folder of the encoded videos: "<res> Videos/<codec>/NNN_<codec>_<res>.mp4".
   # Renamed to the local folder names.
-  drive_fetch 1EvDYl2AYktNyiXnseTfHFZziX5fjXQ3E "$DATASETS_DIR/VideoToChunks/SEPE" '
+  drive_fetch 1EvDYl2AYktNyiXnseTfHFZziX5fjXQ3E "$DATASETS_DIR/VideoChunks/SEPE" '
     s|^480p Videos/|480p/|
     s|^720p Videos/|720p/|
     s|^1K Videos/|1K (2048x1080)/|
@@ -175,7 +175,7 @@ build_sepe() {
 
 build_uvg() {
   log "Ultra Video Group RiverBank (raw 4K)"
-  local dir="$DATASETS_DIR/VideoToChunks/UltraVideoGroup/4K-raw" archive tmp
+  local dir="$DATASETS_DIR/VideoChunks/UltraVideoGroup/4K-raw" archive tmp
   [ -s "$dir/raw.yuv" ] && return 0
   archive="$DATASETS_DIR/.RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z"
   fetch https://ultravideo.fi/video/RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z "$archive"
@@ -205,11 +205,11 @@ EOF
 verify() {
   local prefix
   case "$1" in
-    bbb) prefix='VideoToChunks/BigBuckBunny/' ;;
-    youtube) prefix='VideoToChunks/YouTube/' ;;
+    bbb) prefix='VideoChunks/BigBuckBunny/' ;;
+    youtube) prefix='VideoChunks/YouTube/' ;;
     sequences) prefix='VideoSequences/' ;;
-    sepe) prefix='VideoToChunks/SEPE/' ;;
-    uvg) prefix='VideoToChunks/UltraVideoGroup/' ;;
+    sepe) prefix='VideoChunks/SEPE/' ;;
+    uvg) prefix='VideoChunks/UltraVideoGroup/' ;;
     images) prefix='ImageSequence/' ;;
   esac
   log "verifying $1"

@@ -31,7 +31,7 @@ struct Args {
     #[arg(long, default_value = "http://127.0.0.1:50051")]
     server: String,
     /// Directory with the videos to upload.
-    #[arg(long, default_value = "../datasets/VideoToChunks/BigBuckBunny/1080p")]
+    #[arg(long, default_value = "../datasets/VideoChunks/BigBuckBunny/1080p")]
     dataset: PathBuf,
     /// Chunk size in bytes.
     #[arg(long, default_value_t = 1024 * 1024)]
