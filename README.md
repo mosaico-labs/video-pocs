@@ -26,6 +26,12 @@ ffprobe -v error -select_streams v:0 \
   - `pix_fmt`: how each pixel's colors are stored, e.g. `yuv420p` (8-bit) or
     `yuv420p10le` (10-bit).
 
+## Proofs of concept
+
+| POC | Description |
+|---|---|
+| [video-to-parquet](video-to-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-to-parquet/results/RESULTS.md](video-to-parquet/results/RESULTS.md). |
+
 ## Datasets
 
 The data is organized by how a video is handed to mosaicod:
@@ -36,8 +42,38 @@ The data is organized by how a video is handed to mosaicod:
 | [Video Sequences](#video-sequences) | Ordered, self-contained video files |
 | [Video To Chunks](#video-to-chunks) | One video file, cut into temporal chunks |
 
-Git-ignored folders are too large for the repository: download them separately
-from the provided links and place them at the same path.
+### Building the datasets
+
+The datasets are too large for GitHub, so `datasets/` is git-ignored and
+[`scripts/build-datasets.sh`](scripts/build-datasets.sh) rebuilds it from the
+original sources. Run it once, from anywhere:
+
+```sh
+scripts/build-datasets.sh                    # every dataset (~65 GB to download)
+scripts/build-datasets.sh bbb youtube        # only some of them
+scripts/build-datasets.sh --verify           # also check every file's SHA-256
+```
+
+| Name | Folder | Source | Download |
+|---|---|---|---|
+| `bbb` | `VideoToChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB |
+| `youtube` | `VideoToChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB |
+| `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) |
+| `sepe` | `VideoToChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB |
+| `uvg` | `VideoToChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) |
+| `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB |
+
+- **Requirements**: `curl`, `python3`, `ffmpeg`, `yt-dlp` (for `youtube`),
+  and `7zz`, `7z` or [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to extract
+  the archive).
+- **Stopping and resuming**: files already complete are skipped, so the
+  script can be stopped and run again.
+- **Checking**: `--verify` compares each file with
+  [`scripts/datasets.sha256`](scripts/datasets.sha256). YouTube can re-encode
+  its videos, so a mismatch in `youtube` or `sequences` can mean the video
+  changed on YouTube rather than a broken download.
+- **Environment variables**: `DATASETS_DIR` builds somewhere else than
+  `datasets/`. `JOBS` sets the number of parallel downloads (default 4).
 
 ### Image Sequence
 
@@ -48,13 +84,16 @@ A sequence of PNG images, all with the same resolution and pixel format.
 The frames come from the
 [SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset), which
 publishes every sequence as lossless PNG frames in addition to the encoded
-videos (see [Video To Chunks](#sepe-8k-not-tracked)).
+videos (see [Video To Chunks](#sepe-8k)), one Google Drive folder per
+sequence: [001](https://drive.google.com/drive/folders/1wX3zV3zAJcS7l59DykFUdKLYP6daCkDd),
+[002](https://drive.google.com/drive/folders/1J6EYEN6rjyiHzX5Hf9_wMHrQcRB5f1j3),
+[003](https://drive.google.com/drive/folders/1veJuOduzKV0UUrrx_Rk2zRwDhOp7UOHn).
 
-| Folder | Frames | Resolution | Pixel format | Size | Git |
-|---|---|---|---|---|---|
-| `datasets/ImageSequence/001/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~9.3 GiB | first 50 frames (`000`–`049`, ~1.7 GB) tracked, the rest ignored |
-| `datasets/ImageSequence/002/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~5.9 GiB | ignored |
-| `datasets/ImageSequence/003/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~7.0 GiB | ignored |
+| Folder | Frames | Resolution | Pixel format | Size |
+|---|---|---|---|---|
+| `datasets/ImageSequence/001/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~9.3 GiB |
+| `datasets/ImageSequence/002/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~5.9 GiB |
+| `datasets/ImageSequence/003/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~7.0 GiB |
 
 Each folder is one SEPE sequence, one PNG per frame. The sequence was shot at
 29.97 frames per second (exactly 30000/1001), so its 300 frames are 10 seconds
@@ -75,9 +114,9 @@ A series of self-contained video files, of any length. Each video is decodable
 on its own, and the videos are coherent with each other, so they can be joined
 into one video without re-encoding.
 
-**`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`** (not tracked, too large for GitHub; rebuild them with the commands below):
+**`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`**:
 the YouTube video `Earth_10_minutes.mp4` from
-[Video To Chunks](#youtube-not-tracked) (AV1, 3840x2160, 59.94 fps, 10-bit
+[Video To Chunks](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
 `yuv420p10le`, HDR PQ, 614.73 s, 2.13 GB, no audio), split into 11 files of
 about 200 MB each.
 
@@ -217,7 +256,7 @@ gives exactly the same data as the joined video.
 One logical video file, cut into temporal byte chunks to be stored in
 mosaicod. The temporal byte chunks are valid videos inside the storage.
 
-#### Big Buck Bunny (tracked)
+#### Big Buck Bunny
 
 10-second clips at 30 fps, 8-bit `yuv420p`, in
 `datasets/VideoToChunks/BigBuckBunny/<resolution>/`, downloaded from
@@ -235,26 +274,29 @@ Lossless sources of Big Buck Bunny:
 - https://sciop.net/datasets/blender-bbb
 - https://archive.org/download/AV-LOSSLESS-TEST-MATERIAL/1920x1080/
 
-#### YouTube (not tracked)
+#### YouTube
 
-AV1 videos downloaded from YouTube, video stream only (no audio), in
-`datasets/VideoToChunks/YouTube/AV1-<resolution>/`:
+AV1 videos downloaded from YouTube with `yt-dlp`, video stream only (no audio),
+in `datasets/VideoToChunks/YouTube/AV1-<resolution>/`. The `yt-dlp` format
+is the YouTube stream that was downloaded:
 
-| File | Source | Resolution | Frame rate | Pixel format | Duration | Size |
-|---|---|---|---|---|---|---|
-| `AV1-4K/Earth_10_minutes.mp4` | [Earth in 10 Minutes 4K HDR](https://www.youtube.com/watch?v=zqpv2bySbr4) | 3840x2160 | 59.94 fps | `yuv420p10le`, HDR PQ | 614.73 s | 2.13 GB |
-| `AV1-4K/Japan_in_4K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 3840x2160 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 185 MB |
-| `AV1-8K/Japan_in_8K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 7680x4320 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 447 MB |
+| File | Source | `yt-dlp` format | Resolution | Frame rate | Pixel format | Duration | Size |
+|---|---|---|---|---|---|---|---|
+| `AV1-4K/Earth_10_minutes.mp4` | [Earth in 10 Minutes 4K HDR](https://www.youtube.com/watch?v=zqpv2bySbr4) | 701 | 3840x2160 | 59.94 fps | `yuv420p10le`, HDR PQ | 614.73 s | 2.13 GB |
+| `AV1-4K/Japan_in_4K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 401 | 3840x2160 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 185 MB |
+| `AV1-8K/Japan_in_8K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 571 | 7680x4320 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 447 MB |
 
 The two Japan files are the same YouTube video, downloaded at two
-resolutions. The folder is git-ignored because its files are larger than
-GitHub accepts. The Earth video is also split into ~200 MB files in
+resolutions. The Earth video is also split into ~200 MB files in
 [Video Sequences](#video-sequences).
 
-#### SEPE 8K (not tracked)
+#### SEPE 8K
 
 `datasets/VideoToChunks/SEPE/` (~28 GiB) is the
-[SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset#bitrates-used-for-each-video-codec-and-resolution-combination):
+[SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset#bitrates-used-for-each-video-codec-and-resolution-combination),
+downloaded from its
+[Google Drive folder of encoded videos](https://drive.google.com/drive/folders/1EvDYl2AYktNyiXnseTfHFZziX5fjXQ3E)
+(the Drive folders are named `<resolution> Videos`):
 40 sequences (`001`–`040`), each 10 seconds at 29.97 fps, 8-bit `yuv420p`.
 Every sequence is encoded in AV1, H.264 and HEVC at six resolutions:
 
@@ -270,11 +312,14 @@ Every sequence is encoded in AV1, H.264 and HEVC at six resolutions:
 `<codec>` is one of `av1`, `h264` or `hevc`. The HEVC encodes round the odd
 720p and 2K widths up to an even number.
 
-#### Ultra Video Group 4K raw (not tracked)
+#### Ultra Video Group RiverBank (raw 4K)
 
-`datasets/VideoToChunks/UltraVideoGroup/4K-raw/raw.yuv` (~7 GiB) is an
-uncompressed 4K YUV sequence from the
-[Ultra Video Group dataset](https://ultravideo.fi/dataset.html). A `.yuv` file
+`datasets/VideoToChunks/UltraVideoGroup/4K-raw/raw.yuv` (~7 GiB) is the
+uncompressed 4K sequence *RiverBank* from the
+[Ultra Video Group dataset](https://ultravideo.fi/dataset.html): 3840x2160,
+50 fps, 8-bit `yuv420p`, 600 frames (12 s). It is downloaded as
+[`RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z`](https://ultravideo.fi/video/RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z)
+(3.8 GB) and extracted. A `.yuv` file
 is only the pixels, one frame after the other, with no header. So a tool has
 to be told the frame size, the pixel format and the frame rate. The right
 values are on the sequence's page on the Ultra Video Group site, and two can
@@ -298,8 +343,7 @@ be checked on the file itself:
   Per pixel that is 1 + ¼ + ¼ = 1.5 bytes. A 10-bit format (`yuv420p10le`)
   uses 2 bytes per value, so 3 bytes per pixel.
 
-The frame rate cannot be read from the file; take it from the sequence's
-page. With 50 fps, for example:
+The frame rate cannot be read from the file; RiverBank's page gives 50 fps:
 
 ```sh
 ffplay -f rawvideo -video_size 3840x2160 -pixel_format yuv420p -framerate 50 \
@@ -312,11 +356,5 @@ Other test videos that could be added:
 
 - [Xiph.org media](https://media.xiph.org/): uncompressed `.y4m` and `.yuv`
   sequences (raw frames, not compressed).
-- [Ultra Video Group](https://ultravideo.fi/dataset.html): the same 4K
-  sequences as `raw.yuv`, also published already compressed in H.265.
-
-## Proofs of concept
-
-| POC | Description |
-|---|---|
-| [video-to-parquet](video-to-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-to-parquet/results/RESULTS.md](video-to-parquet/results/RESULTS.md). |
+- [Ultra Video Group](https://ultravideo.fi/dataset.html): the other 4K
+  sequences of the dataset, as raw YUV, and some also compressed in H.265.
