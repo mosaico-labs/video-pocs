@@ -1,5 +1,13 @@
 # Video POCs
 
+> [!CAUTION]
+> This repository is only a series of research and development experiments:
+> the code is not meant to be used in production. Anyone is welcome to share
+> ideas by opening an issue or a pull request. Most of the code is
+> AI-generated to speed up the experiments, but it will be carefully analyzed
+> and evaluated before being introduced into a project that goes to
+> production.
+
 Proofs of concept for managing videos inside
 [mosaicod](https://github.com/mosaico-labs/mosaico): how videos should be
 serialized and stored in mosaicod, and how they are decoded and transcoded.
@@ -38,9 +46,10 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 | `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) |
 | `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB |
 
-- **Requirements**: `curl`, `python3`, `ffmpeg`, `yt-dlp` (for `youtube`),
-  and `7zz`, `7z` or [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to extract
-  the archive).
+- **Requirements**: `curl`, `python3`, `yt-dlp` (for `youtube` and
+  `sequences`), `ffmpeg` and `ffprobe` (for `sequences`),
+  [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to extract the archive) and
+  `shasum` (for `--verify`).
 - **Stopping and resuming**: files already complete are skipped, so the
   script can be stopped and run again.
 - **Checking**: `--verify` compares each file with
@@ -192,19 +201,14 @@ How they were built:
    In pseudocode:
 
    ```
-   keyframes = [(time, position) of every keyframe]   # position = bytes before it
    target = 200 MB
-   last_cut = 0
-   for each keyframe K, from the second one:
-       if position(K) < target: continue                # target not reached yet
-       P = the keyframe before K
-       if P is at least as close to target as K, and P is after last_cut:
-           cut = P
-       else:
-           cut = K
-       add time(cut) to the cut list
-       last_cut = position(cut)
-       target = last_cut + 200 MB
+   P = none                                   # the previous keyframe
+   for each keyframe K, in file order:        # position(K) = bytes before K
+       if position(K) >= target:              # target is between P and K
+           cut = whichever of P and K is closer to target
+           add time(cut) to the cut list
+           target = position(cut) + 200 MB
+       P = K                                  # K is the previous one for the next step
    ```
 
    The commands that ran it: `ffprobe` for step 1, `awk` for steps 2–4.
