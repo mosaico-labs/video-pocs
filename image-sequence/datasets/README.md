@@ -17,6 +17,7 @@ information.
 | [`jitter/`](jitter/README.md) | 300 | Every frame, each time off by a random amount |
 | [`duplicate-timestamps/`](duplicate-timestamps/README.md) | 300 | Some frames share a capture time |
 | [`out-of-order/`](out-of-order/README.md) | 300 | Some times go backwards |
+| [`rate-change/`](rate-change/README.md) | 210 | The frame rate switches, with jitter |
 
 Each scenario folder has its own README, and one `batch_NNN/` folder per
 batch size: `batch_001/` holds the first image, `batch_002/` the first two,

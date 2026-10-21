@@ -10,6 +10,7 @@ timing and describes one way a real camera can deviate from it:
     jitter                every frame, each time off by a random amount
     duplicate-timestamps  some frames get the same time as the previous frame
     out-of-order          some times go backwards (swapped pair, clock step back)
+    rate-change           the frame rate switches between 29.97 and 14.985 fps, with jitter
 
 Writes one folder per scenario and batch size under image-sequence/datasets/:
 <scenario>/batch_001 holds the first image, batch_002 the first two, ... up to
@@ -37,6 +38,8 @@ OUT_DIR = REPO_DIR / "image-sequence" / "datasets"
 
 START_NS = 1_767_225_600_000_000_000  # 2026-01-01T00:00:00Z
 FPS_NUM, FPS_DEN = 30000, 1001
+# Frames of datasets/ImageSequence/001, for the worked numbers in the READMEs
+SEQUENCE_FRAMES = 300
 
 # frame-drops: two single drops and a 0.5 s burst (15 frames)
 DROPPED = {50, 120, *range(200, 215)}
@@ -49,6 +52,10 @@ DUPLICATED = {75, 150, 151, 225}
 SWAPPED = (90, 91)
 CLOCK_STEP_FRAME = 180
 CLOCK_STEP_NS = -500_000_000
+# rate-change: runs of this many images, alternately every source frame
+# (29.97 fps) and every RATE_CHANGE_STEP-th one (14.985 fps), with jitter
+RATE_CHANGE_RUN = 30
+RATE_CHANGE_STEP = 2
 
 
 def ideal_ns(index: int) -> int:
@@ -83,12 +90,49 @@ def out_of_order(images):
     return rows
 
 
+def rate_change_runs(frames: int):
+    """The runs of rate-change over a sequence of `frames` frames, as (step,
+    frame indices): alternately every frame and every RATE_CHANGE_STEP-th."""
+    runs, start = [], 0
+    while start < frames:
+        step = 1 if len(runs) % 2 == 0 else RATE_CHANGE_STEP
+        indices = list(range(start, frames, step))[:RATE_CHANGE_RUN]
+        runs.append((step, indices))
+        start = indices[-1] + step
+    return runs
+
+
+def rate_change(images):
+    rng = random.Random(JITTER_SEED)
+    return [(images[i], ideal_ns(i) + rng.randint(-JITTER_NS, JITTER_NS))
+            for _, indices in rate_change_runs(len(images)) for i in indices]
+
+
+def rate_change_table(frames: int) -> str:
+    """How the runs of rate-change use the frames of the sequence, as a
+    Markdown table."""
+    runs = rate_change_runs(frames)
+    rows = []
+    for n, (step, indices) in enumerate(runs, 1):
+        last = min(indices[-1] + step, frames) - 1
+        rate = f"{FPS_NUM / FPS_DEN / step:.3f}".rstrip("0")
+        rows.append(f"| {n} | {rate} fps | {indices[0]}–{last} | {len(indices)} | {last + 1 - indices[0] - len(indices)} |")
+    images = sum(len(indices) for _, indices in runs)
+    return "\n".join([
+        "| Run | Rate | Frames of the sequence | Images | Frames skipped |",
+        "|---|---|---|---|---|",
+        *rows,
+        f"| **Total** | | **{frames}** | **{images}** | **{frames - images}** |",
+    ])
+
+
 def ms(ns: int) -> str:
     return f"{ns / 1e6:.1f} ms"
 
 
 FRAME_MS = ms(ideal_ns(1) - START_NS)
 BURST = sorted(DROPPED)[2:]
+RATE_CHANGE_IMAGES = sum(len(indices) for _, indices in rate_change_runs(SEQUENCE_FRAMES))
 
 # Per scenario: how its times are built, and what its README says about it
 SCENARIOS = {
@@ -156,6 +200,33 @@ gives the order they were captured in, and after the clock step two different
 frames fall in the same half-second. A video needs one presentation order, so
 one of the two orders (file order or time order) has to be trusted, and the
 data alone doesn't say which."""),
+    "rate-change": (rate_change, "The frame rate switches, with jitter", f"""\
+The camera switches frame rate every {RATE_CHANGE_RUN} images, as auto-exposure
+does when the light changes: {RATE_CHANGE_RUN} images at 29.97 fps (every
+frame of the sequence), then {RATE_CHANGE_RUN} at {30 / 1.001 / RATE_CHANGE_STEP:.3f} fps (every
+{RATE_CHANGE_STEP}nd frame, {ms(RATE_CHANGE_STEP * (ideal_ns(1) - START_NS))} apart), and so on. Each image keeps
+the capture time of its frame, so the content matches the time, plus the
+same jitter as `jitter/` (up to ±{ms(JITTER_NS)}, seed {JITTER_SEED}). Times always
+increase, by at least ~27 ms. `batch_{2 * RATE_CHANGE_RUN:03d}/` is the
+first switch: one run at each rate.
+
+**Why it can't become a video as is:** no constant frame rate fits every
+image in a slot of its own. At 29.97 fps the slower runs leave an empty slot
+between their frames, which only a repeated frame can fill; at
+{30 / 1.001 / RATE_CHANGE_STEP:.3f} fps two frames of the faster runs fall in each
+slot, so one would be dropped; any other rate needs one or the other. Only a
+variable-frame-rate video, each frame at its own time, holds exactly these
+images.
+
+**Why {RATE_CHANGE_IMAGES} images, not {SEQUENCE_FRAMES}:** a batch size is a number of images, and
+a slow run skips frames. A fast run takes {RATE_CHANGE_RUN} images from {RATE_CHANGE_RUN} frames and
+skips none; a slow run takes {RATE_CHANGE_RUN} images from {RATE_CHANGE_STEP * RATE_CHANGE_RUN} frames and skips
+{(RATE_CHANGE_STEP - 1) * RATE_CHANGE_RUN}. The {SEQUENCE_FRAMES} frames of the sequence make {len(rate_change_runs(SEQUENCE_FRAMES))} runs:
+
+{rate_change_table(SEQUENCE_FRAMES)}
+
+As in `frame-drops/`, a frame that is skipped has no image, so the batches
+stop at the number of images, not of frames."""),
 }
 
 
