@@ -507,7 +507,9 @@ first from the dataset's Google Drive folder (~2 GB for the 60).
 The test runs on GitHub Actions, together with the unit tests, on every
 push and pull request to `main` that changes the workspace
 ([`image-sequence.yml`](../.github/workflows/image-sequence.yml)). They run on
-`ubuntu-latest`, with FFmpeg 9 installed from the runner's Homebrew: the same
-version as on macOS, newer than Ubuntu's own package. They do not run on
-macOS: encoding the 8K frames needs ~11 GB of memory, more than the 7 GB of
-the standard macOS runner. The downloaded frames are cached between runs.
+`ubuntu-latest`, with FFmpeg 9 from
+[BtbN's prebuilt shared build](https://github.com/BtbN/FFmpeg-Builds).
+Tests do not run on
+macOS because encoding the 8K frames needs ~11 GB of memory, more than the 7 GB
+available on the standard macOS runner.
+The downloaded frames are cached between runs.
