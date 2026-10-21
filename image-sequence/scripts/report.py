@@ -974,7 +974,10 @@ def presets_crfs_overview(sequence, runs, path):
                lambda r: r.mean_loss(by_name["butteraugli-3norm"]), None, "lower is better"),
               ("Encoder working time, the AV1 encoding itself", "seconds",
                lambda r: r.upload["encode_seconds"] - r.upload["encode_wait_seconds"], None, "lower is faster")]
+    # The same images for every encoding of the batch.
+    u = runs[0].upload
     lines = [f"{sequence}: every encoding, one line per SVT-AV1 preset; read down a column for one CRF.",
+             f"**Input: {u['images']} PNG images of {u['width']}x{u['height']}, {runs[0].png_mib:.1f} MiB in all.**",
              "**Each panel: lower is better.**",
              "The encoder's time is measured on the server; back-to-back runs heat the machine and slow the later ones.",
              *(["Left of the dotted line: the lossless encodings (diamonds); a triangle at the top is off the scale, "
