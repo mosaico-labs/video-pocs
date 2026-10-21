@@ -19,6 +19,7 @@ up to 8K.
 | POC | Description |
 |---|---|
 | [video-to-parquet](video-to-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-to-parquet/results/RESULTS.md](video-to-parquet/results/RESULTS.md). |
+| [image-sequence](image-sequence/README.md) | Uploads timestamped 8K PNG images with mosaicod's upload flow; the server encodes them into an 8-bit AV1 `.mkv` video with FFmpeg (SVT-AV1), keeping each capture time to the millisecond, and a quality tool compares the video with the images (PSNR, PSNR-HVS, MS-SSIM, CIEDE2000, SSIMULACRA2, butteraugli), as losses over visibility thresholds. The client's and the server's times are measured apart. Results: one summary per encoding, e.g. [preset 9, CRF 30](image-sequence/results/regular/batch_060/preset_9_crf_30/summary.md), and the comparison of SVT-AV1 presets 5, 6 and 9 at CRF 18–35 in [`presets-crfs/`](image-sequence/results/regular/batch_060/presets-crfs/compare-presets-data.svg). Also holds the [capture-time datasets](image-sequence/datasets/README.md). |
 
 ## Datasets
 
@@ -37,19 +38,25 @@ scripts/build-datasets.sh bbb youtube        # only some of them
 scripts/build-datasets.sh --verify           # also check every file's SHA-256
 ```
 
-| Name | Folder | Source | Download |
-|---|---|---|---|
-| `bbb` | `VideoChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB |
-| `youtube` | `VideoChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB |
-| `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) |
-| `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB |
-| `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) |
-| `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB |
+| Name | Folder | Source | Download | Used by |
+|---|---|---|---|---|
+| `bbb` | `VideoChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB | video-to-parquet |
+| `youtube` | `VideoChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB | video-to-parquet |
+| `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) | – |
+| `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB | video-to-parquet |
+| `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) | – (raw `.yuv`, no container) |
+| `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB | image-sequence (`001/`) |
+
+video-to-parquet uploads every video it finds under `VideoChunks/`, so it
+uses whichever of `bbb`, `youtube` and `sepe` are built. image-sequence
+uses the frames of `ImageSequence/001/`: its end-to-end test and its
+published results need only the first 60, which the test downloads by
+itself; the other batches of its datasets need all 300.
 
 - **Requirements**: `curl`, `python3`, `yt-dlp` (for `youtube` and
-  `sequences`), `ffmpeg` and `ffprobe` (for `sequences`),
-  [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to extract the archive) and
-  `shasum` (for `--verify`).
+  `sequences`), `ffmpeg` and `ffprobe` (for `sequences`), 7-Zip (`7zz` or
+  `7z`) or, without it, [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to
+  extract the archive with `py7zr`) and `shasum` (for `--verify`).
 - **Stopping and resuming**: files already complete are skipped, so the
   script can be stopped and run again.
 - **Checking**: `--verify` compares each file with
