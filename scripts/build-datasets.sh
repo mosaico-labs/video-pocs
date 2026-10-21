@@ -16,8 +16,9 @@
 #   images     ImageSequence/{001,002,003}       SEPE 8K PNG frames, Drive    ~24 GB
 #
 # --verify compares every file with scripts/datasets.sha256, the checksums of
-# the files this README describes. YouTube can re-encode its videos, so a
-# mismatch there means the video changed upstream, not a broken download.
+# the files the repository README describes. YouTube can re-encode its
+# videos, so a mismatch there means the video changed upstream, not a broken
+# download.
 #
 # Requirements: curl, python3, ffmpeg/ffprobe, yt-dlp (youtube), and 7zz, 7z or
 # uv (uvg: extracts the .7z archive, with `uvx py7zr` if no 7-Zip is installed).
@@ -89,12 +90,12 @@ drive_fetch() {
 
 build_bbb() {
   log "Big Buck Bunny"
-  local dir="$DATASETS_DIR/VideoChunks/BigBuckBunny" res codec size ext type
+  local dir="$DATASETS_DIR/VideoChunks/BigBuckBunny" res codec size ext
   # <resolution> <codec> <size in the file name>
   while read -r res codec size; do
-    if [ "$codec" = vp9 ]; then ext=webm type=webm; else ext=mp4 type=mp4; fi
+    if [ "$codec" = vp9 ]; then ext=webm; else ext=mp4; fi
     printf '%s\0%s\0' \
-      "https://test-videos.co.uk/vids/bigbuckbunny/$type/$codec/$res/Big_Buck_Bunny_${res}_10s_${size}.$ext" \
+      "https://test-videos.co.uk/vids/bigbuckbunny/$ext/$codec/$res/Big_Buck_Bunny_${res}_10s_${size}.$ext" \
       "$dir/${res}p/Big_Buck_Bunny_${size}_${codec}.$ext"
   done <<'EOF' | fetch_all
 360 av1 20MB
@@ -136,7 +137,7 @@ build_sequences() {
   local src="$DATASETS_DIR/VideoChunks/YouTube/AV1-4K/Earth_10_minutes.mp4"
   local dir="$DATASETS_DIR/VideoSequences/AV1/4K" tmp cuts
   [ -s "$dir/Earth_000.mp4" ] && return 0
-  [ -s "$src" ] || youtube_fetch zqpv2bySbr4 701 "$src"
+  youtube_fetch zqpv2bySbr4 701 "$src"   # already there if `youtube` was built
   # Each cut is at the keyframe closest to the next 200 MB of video.
   cuts="$(ffprobe -v error -select_streams v:0 -show_entries packet=pts_time,size,flags -of csv=p=0 "$src" |
     awk -F, -v target=200000000 '
