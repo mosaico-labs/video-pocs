@@ -25,9 +25,9 @@ and so on up to all the images of the scenario. Each batch has a
 
 ## Rebuilding
 
-The CSV files are not stored in git. To rebuild every scenario (it takes a
-few seconds, and needs `datasets/ImageSequence/001/`, built by
-`scripts/build-datasets.sh images`):
+The CSV files are in the repository. To rebuild every scenario (it takes a
+few seconds, and needs all 300 frames of `datasets/ImageSequence/001/`,
+downloaded by `scripts/build-datasets.sh images`):
 
 ```sh
 image-sequence/scripts/build-timestamps.py
