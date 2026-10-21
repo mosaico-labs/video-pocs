@@ -31,7 +31,10 @@ jobs:
             | tar -xJ -C "$prefix" --strip-components=1
           echo "$prefix/bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
-          echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$prefix/lib" >> "$GITHUB_ENV"
+          # Not an rpath on our binaries: it would not reach the libraries'
+          # own dependencies (libavdevice needs libavfilter), as BtbN's
+          # libraries have no rpath of their own.
+          echo "LD_LIBRARY_PATH=$prefix/lib" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
 

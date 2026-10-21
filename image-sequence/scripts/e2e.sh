@@ -42,8 +42,9 @@ trap finish EXIT
 
 echo "== input"
 # The CSV's images (datasets/ImageSequence/001/NNN_8K.png) that are missing,
-# with their Drive file ids, downloaded 4 at a time.
-python3 -I - "$REPO" "$TIMESTAMPS" "$DRIVE_FOLDER" <<'EOF' | xargs -0 -n 2 -P 4 sh -c '
+# with their Drive file ids, downloaded 4 at a time. -r: GNU xargs would
+# otherwise run curl once, without a URL, when none is missing.
+python3 -I - "$REPO" "$TIMESTAMPS" "$DRIVE_FOLDER" <<'EOF' | xargs -0 -r -n 2 -P 4 sh -c '
     curl -sS --fail -L --retry 5 --retry-all-errors -o "$1.part" "$0" &&
     if head -c 512 "$1.part" | grep -qi "<html"; then
         echo "got an HTML page instead of $1" >&2; rm -f "$1.part"; exit 1
