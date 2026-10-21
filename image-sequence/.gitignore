@@ -1,0 +1,5 @@
+/target
+# Videos and quality reports written by the server and the quality tool
+/output
+# Python bytecode cache
+__pycache__/

@@ -1,0 +1,12 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+arrow-schema.workspace = true
+png.workspace = true
+prost.workspace = true
+rayon.workspace = true
+serde.workspace = true

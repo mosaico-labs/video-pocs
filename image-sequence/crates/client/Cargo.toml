@@ -1,0 +1,17 @@
+[package]
+name = "client"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common.workspace = true
+anyhow.workspace = true
+arrow-array.workspace = true
+arrow-flight.workspace = true
+arrow-schema.workspace = true
+clap.workspace = true
+futures.workspace = true
+prost.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tonic.workspace = true
