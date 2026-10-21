@@ -19,13 +19,16 @@ jobs:
       run:
         working-directory: image-sequence
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
+      # BtbN's prebuilt FFmpeg 9.0 shared build: libraries, headers, pkg-config
+      # files and the ffmpeg binary, with libsvtav1 and libdav1d.
       - name: Install FFmpeg
         run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          brew install pkgconf ffmpeg
-          prefix="$(brew --prefix)"
+          prefix="$RUNNER_TEMP/ffmpeg"
+          mkdir -p "$prefix"
+          curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-shared-9.0.tar.xz \
+            | tar -xJ -C "$prefix" --strip-components=1
           echo "$prefix/bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$prefix/lib" >> "$GITHUB_ENV"
@@ -38,7 +41,7 @@ jobs:
 
       - name: Restore the frames
         id: frames
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: datasets/ImageSequence/001
           key: sepe-001-frames-000-059
@@ -51,7 +54,7 @@ jobs:
 
       - name: Save the frames
         if: always() && steps.frames.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: datasets/ImageSequence/001
           key: sepe-001-frames-000-059
