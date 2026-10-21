@@ -1,0 +1,57 @@
+name: image-sequence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "image-sequence/**"
+      - ".github/workflows/image-sequence.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "image-sequence/**"
+      - ".github/workflows/image-sequence.yml"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: image-sequence
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew install pkgconf ffmpeg
+          prefix="$(brew --prefix)"
+          echo "$prefix/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$prefix/lib" >> "$GITHUB_ENV"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: image-sequence
+
+      - name: Restore the frames
+        id: frames
+        uses: actions/cache/restore@v4
+        with:
+          path: datasets/ImageSequence/001
+          key: sepe-001-frames-000-059
+
+      - name: Unit tests
+        run: cargo test --release
+
+      - name: End-to-end test
+        run: scripts/e2e.sh
+
+      - name: Save the frames
+        if: always() && steps.frames.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: datasets/ImageSequence/001
+          key: sepe-001-frames-000-059
