@@ -140,8 +140,17 @@ To also get the charts and summary of that run, add
 ## Running on every dataset
 
 This is how the committed [`results/`](results/) folder is produced: every
-video under `datasets/VideoChunks/` is uploaded, and the measurements are turned into a
-summary and charts.
+video under `datasets/VideoChunks/` is uploaded, and the measurements are
+turned into a summary and charts.
+
+> [!NOTE]
+> The committed run (2026-10-13) predates the move of the videos to
+> `datasets/VideoChunks/`: it covers Big Buck Bunny 360p and 1080p and SEPE
+> 8K (728 videos), not Big Buck Bunny 720p nor the YouTube videos, and its
+> reports keep the old folder names (`reports/360p.json`,
+> `reports/LargeFiles_480p_AV1.json`, ...). A new run would name them after
+> the current folders (`BigBuckBunny_1080p`, `SEPE_480p_AV1`, ...) and
+> upload every video, so its totals would differ from the tables below.
 
 **Requirements:** Rust (to build the client and server), Python 3 and
 [`uv`](https://docs.astral.sh/uv/). `uv` installs `matplotlib` for
@@ -170,13 +179,15 @@ it. Then commit `video-to-parquet/results/`: it holds only data meant for the re
 and the paths in the reports are relative to the repository. `analyze.py`
 saves the charts as PNGs without metadata, and the per-video ones with 256
 colors (under half the size of matplotlib's own PNGs, with no visible
-difference), so a chart file only
-changes when its numbers do. The file-size charts in particular stay the same
+difference), so a chart file only changes when its numbers do: running
+`analyze.py` again on the same reports rewrites the same files, except the
+date in `RESULTS.md`. The file-size charts in particular stay the same
 across runs with the same settings.
 
 **How step 1 works.** `run-all.sh` builds the binaries, starts the server once
 and runs the client on each folder that directly holds videos, for example
-`datasets/VideoChunks/BigBuckBunny/1080p` or `datasets/VideoChunks/SEPE/480p/AV1`. After each folder it
+`datasets/VideoChunks/BigBuckBunny/1080p` or
+`datasets/VideoChunks/SEPE/480p/AV1`. After each folder it
 checks that the server stored a `metadata.json` and Parquet files for every
 video. A failure on one folder is reported and the script moves on to the
 next, exiting with an error at the end. Each folder is its own mosaicod
