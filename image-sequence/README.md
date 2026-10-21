@@ -210,6 +210,7 @@ Main options:
 | `quality` | `--preset`, `--crf` | 9, 30 | Settings the video was encoded with, to find it in `output/` |
 | `quality` | `--step` | 1 | Measure one frame every N |
 | `quality` | `--refresh-conversion` | off | Measure the YUV 4:2:0 conversion again instead of reusing `yuv420.quality.json` |
+| `quality` | `--yuv444-floor` | off | Measure no video, only what the conversion to YUV 4:4:4 alone loses (see [Lossless 4:4:4](#lossless-the-conversion-alone)), into `yuv444.quality.json` |
 | `quality` | `--jobs` | 4 | Frames measured at the same time. Butteraugli needs ~9 GiB at 8K and runs for one frame at a time; with 4 jobs the tool stays at ~15 GB resident |
 
 
@@ -223,6 +224,7 @@ matplotlib on its first run. After the three steps of
 
 ```sh
 uv run scripts/report.py   # takes the same --preset and --crf as quality
+uv run scripts/report.py --compare-only   # only presets-crfs/, from results/
 ```
 
 [`scripts/run.sh`](scripts/run.sh) runs everything instead: it builds the
@@ -455,6 +457,23 @@ the preset also chooses the transforms and filters and changes what is
 lost. The encoding times are from back-to-back runs, which slow the later
 ones down: preset 6, slower here than preset 5, took 61.4 s of encoder wall
 time instead of 75.3 s when run again on its own.
+
+**Lossless 4:4:4.** SVT-AV1 encodes only 4:2:0 (its `--color-format`
+accepts nothing else), so there is no lossless 4:4:4 video. Its only loss
+would be the conversion to 8-bit YUV 4:4:4, which needs no encoding:
+`quality --yuv444-floor` measures it on each image, the same way as the
+4:2:0 conversion, into `output/<scenario>/<batch>/yuv444.quality.json`
+(~4 min for the 60 images), and `scripts/report.py` copies it to
+`results/<scenario>/<batch>/yuv444.quality.json` and draws it as a dashed
+gray-blue line in the two butteraugli charts of `presets-crfs/`, next to the
+orange 4:2:0 one, both in the legend. On
+`regular/batch_060` it is no lower than the 4:2:0 conversion: butteraugli
+max-norm 1.39 against 1.36, 3-norm 0.48 against 0.47. The PNGs carry
+almost no color detail finer than 2x2 pixels (0.28 levels on average on
+the first image), so averaging it loses next to nothing; in RGB, 4:4:4 does
+lose less (0.58 against 0.86 levels of RMS error on the first image), but both floors are mostly the rounding
+to 8-bit limited range, and butteraugli sees 4:4:4's rounding of every
+pixel's color slightly more than 4:2:0's smoother color.
 
 **Is it acceptable?** Each chart shades the values the eye can or cannot
 see. CIEDE2000, SSIMULACRA2 and butteraugli have their own scales (in the

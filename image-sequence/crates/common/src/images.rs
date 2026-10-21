@@ -1,5 +1,6 @@
 //! The images of a sequence: reading `timestamps.csv`, decoding PNG and
-//! converting RGB to the YUV 4:2:0 frames the video is encoded from.
+//! converting RGB to the YUV 4:2:0 frames the video is encoded from (and to
+//! YUV 4:4:4, only to measure what that conversion loses).
 //!
 //! The server and the quality tool both convert with [`rgb_to_yuv420`], so
 //! the quality tool compares the decoded video with exactly the frames the
@@ -149,9 +150,7 @@ pub fn rgb_to_yuv420(rgb: &Rgb8, bit_depth: u8) -> Result<Yuv420> {
         matches!(bit_depth, 8 | 10),
         "only 8 and 10 bits are supported, not {bit_depth}"
     );
-    let scale = f32::from(1u16 << (bit_depth - 8));
-    let max = f32::from((1u16 << bit_depth) - 1);
-    let sample = |value: f32| (value * scale).round().clamp(0.0, max) as u16;
+    let sample = sampler(bit_depth);
 
     let chroma_width = width / 2;
     let mut y = vec![0; width * height];
@@ -167,12 +166,10 @@ pub fn rgb_to_yuv420(rgb: &Rgb8, bit_depth: u8) -> Result<Yuv420> {
                 let (mut cb, mut cr) = (0.0, 0.0);
                 for (dy, dx) in [(0, 0), (0, 1), (1, 0), (1, 1)] {
                     let x = 2 * cx + dx;
-                    let pixel = &rgb.data[((2 * pair + dy) * width + x) * 3..][..3];
-                    let [r, g, b] = [pixel[0], pixel[1], pixel[2]].map(|c| f32::from(c) / 255.0);
-                    let luma = KR * r + KG * g + KB * b;
+                    let (luma, pb, pr) = ycbcr(&rgb.data[((2 * pair + dy) * width + x) * 3..][..3]);
                     y_rows[dy * width + x] = sample(16.0 + 219.0 * luma);
-                    cb += (b - luma) / (2.0 * (1.0 - KB));
-                    cr += (r - luma) / (2.0 * (1.0 - KR));
+                    cb += pb;
+                    cr += pr;
                 }
                 u_row[cx] = sample(128.0 + 224.0 * cb / 4.0);
                 v_row[cx] = sample(128.0 + 224.0 * cr / 4.0);
@@ -186,4 +183,84 @@ pub fn rgb_to_yuv420(rgb: &Rgb8, bit_depth: u8) -> Result<Yuv420> {
         u,
         v,
     })
+}
+
+/// A YUV 4:4:4 frame: like [`Yuv420`], but U and V at full size, one
+/// sample per pixel.
+pub struct Yuv444 {
+    pub width: usize,
+    pub height: usize,
+    pub bit_depth: u8,
+    pub y: Vec<u16>,
+    pub u: Vec<u16>,
+    pub v: Vec<u16>,
+}
+
+/// Converts RGB to YUV 4:4:4 with the same matrix and range as
+/// [`rgb_to_yuv420`], without averaging the color: what a 4:4:4 video would
+/// be encoded from. No video is: SVT-AV1 encodes only 4:2:0. The quality
+/// tool uses it to measure what this conversion alone loses.
+pub fn rgb_to_yuv444(rgb: &Rgb8, bit_depth: u8) -> Result<Yuv444> {
+    ensure!(
+        matches!(bit_depth, 8 | 10),
+        "only 8 and 10 bits are supported, not {bit_depth}"
+    );
+    let sample = sampler(bit_depth);
+    let (y, (u, v)): (Vec<u16>, (Vec<u16>, Vec<u16>)) = rgb
+        .data
+        .par_chunks_exact(3)
+        .map(|pixel| {
+            let (luma, cb, cr) = ycbcr(pixel);
+            (
+                sample(16.0 + 219.0 * luma),
+                (sample(128.0 + 224.0 * cb), sample(128.0 + 224.0 * cr)),
+            )
+        })
+        .unzip();
+    Ok(Yuv444 {
+        width: rgb.width,
+        height: rgb.height,
+        bit_depth,
+        y,
+        u,
+        v,
+    })
+}
+
+/// One RGB pixel as BT.709 luma (0 to 1) and color differences (−0.5 to 0.5).
+fn ycbcr(pixel: &[u8]) -> (f32, f32, f32) {
+    let [r, g, b] = [pixel[0], pixel[1], pixel[2]].map(|c| f32::from(c) / 255.0);
+    let luma = KR * r + KG * g + KB * b;
+    (luma, (b - luma) / (2.0 * (1.0 - KB)), (r - luma) / (2.0 * (1.0 - KR)))
+}
+
+/// Rounds an 8-bit-scale value to a sample of `bit_depth` bits.
+fn sampler(bit_depth: u8) -> impl Fn(f32) -> u16 + Sync {
+    let scale = f32::from(1u16 << (bit_depth - 8));
+    let max = f32::from((1u16 << bit_depth) - 1);
+    move |value| (value * scale).round().clamp(0.0, max) as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn yuv444_keeps_the_color_of_each_pixel() {
+        // Two pixels in a row: red and blue. 4:2:0 averages their color,
+        // 4:4:4 keeps both, and both agree on the luma.
+        let rgb = Rgb8 {
+            width: 2,
+            height: 2,
+            data: [[255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]].concat(),
+        };
+        let full = rgb_to_yuv444(&rgb, 8).unwrap();
+        let half = rgb_to_yuv420(&rgb, 8).unwrap();
+        assert_eq!(full.y, half.y);
+        assert_eq!(full.u.len(), 4);
+        assert_ne!(full.v[0], full.v[1]);
+        // Rounded once from the mean, not from the two rounded samples.
+        let mean = (i32::from(full.v[0]) + i32::from(full.v[1])) / 2;
+        assert!((i32::from(half.v[0]) - mean).abs() <= 1);
+    }
 }

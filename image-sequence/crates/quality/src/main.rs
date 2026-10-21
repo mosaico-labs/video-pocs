@@ -21,6 +21,12 @@
 //! image and kept in `output/<scenario>/<batch>/yuv420.quality.json` for the
 //! next videos of the batch (see [`ConversionCache`]).
 //!
+//! With `--yuv444-floor` it measures no video: only what converting the
+//! images to YUV 4:4:4 (full-resolution color) would lose, the floor of a
+//! lossless 4:4:4 video, which SVT-AV1 cannot encode. It is kept in
+//! `output/<scenario>/<batch>/yuv444.quality.json`, the same format as the
+//! 4:2:0 values.
+//!
 //! Every stage of the measuring is timed: each frame's log line gives its
 //! breakdown, and the totals go to the summary and `<video>.quality.json`.
 //!
@@ -57,7 +63,7 @@ use av_metrics::video::{
 use clap::Parser;
 use common::{
     CAPTURE_START_TAG, DEFAULT_CRF, DEFAULT_PRESET, DEFAULT_TOPIC,
-    images::{Rgb8, TimedImage, Yuv420, load_png, read_timestamps, rgb_to_yuv420},
+    images::{Rgb8, TimedImage, Yuv420, load_png, read_timestamps, rgb_to_yuv420, rgb_to_yuv444},
     quality_csv_path, sequence_dir, sequence_name, video_path,
 };
 use serde::{Deserialize, Serialize};
@@ -102,6 +108,11 @@ struct Args {
     /// of reusing it from `yuv420.quality.json`.
     #[arg(long)]
     refresh_conversion: bool,
+    /// Measure no video: only what converting the images to 8-bit YUV 4:4:4
+    /// alone loses, into `yuv444.quality.json` (reused unless
+    /// `--refresh-conversion`).
+    #[arg(long, conflicts_with_all = ["video", "crf", "lossless"])]
+    yuv444_floor: bool,
 }
 
 /// What to measure, shared by every frame.
@@ -111,12 +122,13 @@ struct Measuring {
 
 const CHROMA: ChromaSampling = ChromaSampling::Cs420;
 
-/// The decoded video's color format, for SSIMULACRA2 to convert it back to RGB.
-fn video_config(bit_depth: u8) -> YuvConfig {
+/// The decoded video's color format, for SSIMULACRA2 to convert it back to
+/// RGB: `subsampling` 1 for 4:2:0 (half-resolution color), 0 for 4:4:4.
+fn video_config(bit_depth: u8, subsampling: u8) -> YuvConfig {
     YuvConfig {
         bit_depth,
-        subsampling_x: 1,
-        subsampling_y: 1,
+        subsampling_x: subsampling,
+        subsampling_y: subsampling,
         full_range: false,
         matrix_coefficients: MatrixCoefficients::BT709,
         transfer_characteristics: TransferCharacteristic::SRGB,
@@ -138,8 +150,18 @@ fn to_frame<T: FramePixel>(width: usize, height: usize, planes: [(&[u8], usize);
 /// The reference: the PNG converted to YUV, as the same sample type as the
 /// decoded frame.
 fn yuv_frame<T: FramePixel>(yuv: &Yuv420) -> Frame<T> {
-    let mut frame = Frame::new_with_padding(yuv.width, yuv.height, CHROMA, 0);
     let planes = [(&yuv.y, yuv.width), (&yuv.u, yuv.width / 2), (&yuv.v, yuv.width / 2)];
+    samples_frame(yuv.width, yuv.height, CHROMA, planes)
+}
+
+/// Builds a [`Frame`] from three planes of samples, given with their width.
+fn samples_frame<T: FramePixel>(
+    width: usize,
+    height: usize,
+    chroma: ChromaSampling,
+    planes: [(&Vec<u16>, usize); 3],
+) -> Frame<T> {
+    let mut frame = Frame::new_with_padding(width, height, chroma, 0);
     for (plane, (samples, width)) in frame.planes.iter_mut().zip(planes) {
         for (row, source) in plane.rows_iter_mut().zip(samples.chunks_exact(width)) {
             row.iter_mut().zip(source).for_each(|(t, &s)| *t = T::cast_from(s));
@@ -348,7 +370,7 @@ fn measure<T: FramePixel>(
     // received if the conversion is not cached. It goes back to RGB the same
     // way as the decoded frame, so the two differ only by what AV1 lost.
     let to_linear = |frame: Frame<T>| -> Result<LinearRgb> {
-        LinearRgb::try_from(Yuv::new(frame, video_config(bit_depth)).map_err(debug_error)?).map_err(debug_error)
+        LinearRgb::try_from(Yuv::new(frame, video_config(bit_depth, 1)).map_err(debug_error)?).map_err(debug_error)
     };
     let (reference, distorted) = timer.time("linear RGB", || -> Result<_> {
         Ok((LinearRgb::try_from(rgb_image(&rgb)?).map_err(debug_error)?, to_linear(decoded)?))
@@ -411,6 +433,82 @@ fn measure<T: FramePixel>(
     metrics.push(("butteraugli_3norm_yuv420".into(), conversion.butteraugli_3norm));
     metrics.push(("ssimulacra2_yuv420".into(), conversion.ssimulacra2));
     Ok((metrics, timer))
+}
+
+/// What the conversion to 8-bit YUV 4:4:4 alone loses on one image, the
+/// same way as the 4:2:0 conversion in [`measure`]: cached, or measured now.
+fn measure_yuv444(image: &TimedImage, cache: &ConversionCache) -> Result<Conversion> {
+    const BIT_DEPTH: u8 = 8;
+    let png_bytes = fs::metadata(&image.path)?.len();
+    if let Some(conversion) = cache.get(image, png_bytes, BIT_DEPTH) {
+        return Ok(conversion);
+    }
+    let rgb = load_png(&image.path)?;
+    let yuv = rgb_to_yuv444(&rgb, BIT_DEPTH)?;
+    let planes = [(&yuv.y, yuv.width), (&yuv.u, yuv.width), (&yuv.v, yuv.width)];
+    let frame = samples_frame::<u8>(yuv.width, yuv.height, ChromaSampling::Cs444, planes);
+    drop(yuv);
+    let converted = LinearRgb::try_from(Yuv::new(frame, video_config(BIT_DEPTH, 0)).map_err(debug_error)?)
+        .map_err(debug_error)?;
+    let reference = LinearRgb::try_from(rgb_image(&rgb)?).map_err(debug_error)?;
+    drop(rgb);
+    let scores = {
+        let _one_at_a_time = BUTTERAUGLI.lock().unwrap_or_else(|e| e.into_inner());
+        butteraugli_linear(
+            linear_image(&reference).as_ref(),
+            linear_image(&converted).as_ref(),
+            &ButteraugliParams::default(),
+        )?
+    };
+    let ssimulacra2 = ssimulacra2::compute_frame_ssimulacra2(reference, converted).map_err(debug_error)?;
+    let conversion = Conversion {
+        image: image.image.clone(),
+        png_bytes,
+        bit_depth: BIT_DEPTH,
+        ssimulacra2,
+        butteraugli_max: scores.score,
+        butteraugli_3norm: scores.pnorm_3,
+    };
+    cache.insert(conversion.clone());
+    Ok(conversion)
+}
+
+/// `--yuv444-floor`: measures what the conversion to YUV 4:4:4 alone loses
+/// on every `step`-th image, `jobs` at a time, and prints the means.
+fn yuv444_floor(images: &[TimedImage], cache: &ConversionCache, step: u64, jobs: usize) -> Result<()> {
+    let started = Instant::now();
+    let selected: Vec<&TimedImage> = images.iter().step_by(step as usize).collect();
+    let mut measured = Vec::new();
+    for chunk in selected.chunks(jobs) {
+        let results: Vec<Result<Conversion>> = chunk
+            .par_iter()
+            .map(|image| measure_yuv444(image, cache).with_context(|| format!("measuring {}", image.image)))
+            .collect();
+        for conversion in results {
+            let conversion = conversion?;
+            eprintln!(
+                "{}: butteraugli max-norm {:.3}, 3-norm {:.3}, SSIMULACRA2 {:.2}",
+                conversion.image, conversion.butteraugli_max, conversion.butteraugli_3norm, conversion.ssimulacra2
+            );
+            measured.push(conversion);
+        }
+    }
+    cache.save()?;
+    let mean = |f: fn(&Conversion) -> f64| measured.iter().map(f).sum::<f64>() / measured.len() as f64;
+    println!(
+        "conversion to YUV 4:4:4 alone, mean over {} images: butteraugli max-norm {:.3}, 3-norm {:.3}, SSIMULACRA2 {:.2}",
+        measured.len(),
+        mean(|c| c.butteraugli_max),
+        mean(|c| c.butteraugli_3norm),
+        mean(|c| c.ssimulacra2)
+    );
+    println!(
+        "{} reused, written to {} in {:.1} s",
+        *cache.reused.lock().unwrap(),
+        cache.path.display(),
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
 }
 
 /// The time of every stage, summed over the measured frames: (seconds,
@@ -674,6 +772,11 @@ fn main() -> Result<()> {
     let timestamps = args.timestamps.unwrap_or_else(common::default_timestamps);
     let images = read_timestamps(&timestamps)?;
     let sequence = sequence_name(&timestamps);
+    let batch_output = common::default_output_dir().join(sequence_dir(&sequence));
+    if args.yuv444_floor {
+        let cache = ConversionCache::load(batch_output.join("yuv444.quality.json"), args.refresh_conversion);
+        return yuv444_floor(&images, &cache, args.step, args.jobs as usize);
+    }
     let video = args.video.unwrap_or_else(|| {
         video_path(
             &common::default_output_dir(),
@@ -687,12 +790,7 @@ fn main() -> Result<()> {
     let (frames, decode_seconds) = time_decoding(&video)?;
     eprintln!("decoded {frames} frames with {DECODER} in {decode_seconds:.2} s");
     let measuring = Measuring {
-        conversion: ConversionCache::load(
-            common::default_output_dir()
-                .join(sequence_dir(&sequence))
-                .join("yuv420.quality.json"),
-            args.refresh_conversion,
-        ),
+        conversion: ConversionCache::load(batch_output.join("yuv420.quality.json"), args.refresh_conversion),
     };
     let rows = decode_and_measure(&video, &images, args.step, args.jobs as usize, &measuring)?;
     let cache = &measuring.conversion;

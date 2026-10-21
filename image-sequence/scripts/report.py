@@ -41,6 +41,13 @@ conversion to YUV 4:2:0 alone lost (the `*_yuv420` columns), before AV1.
 Run it after the server and the quality tool:
 
     uv run scripts/report.py [--timestamps CSV] [--preset P] [--crf C | --lossless]
+    uv run scripts/report.py [--timestamps CSV] --compare-only
+
+--compare-only rewrites only presets-crfs/, the comparison of the batch's
+encodings, from results/. It also draws what the conversion to YUV 4:4:4
+alone loses, the floor of a lossless 4:4:4 video, which SVT-AV1 cannot
+encode: measured with `quality --yuv444-floor` into output/, and kept in
+results/<scenario>/<batch>/yuv444.quality.json.
 
 A lossless video goes to preset_<P>_lossless/: its only loss is the
 conversion to YUV 4:2:0. It has no CRF, so in the charts that compare the
@@ -171,6 +178,9 @@ MUTED = "#898781"
 # Categorical slots 1 and 2: the video, and the YUV 4:2:0 conversion alone.
 LINE = "#2a78d6"
 CONVERSION = "#eb6834"
+# What the YUV 4:4:4 conversion alone would lose, in the comparison of a
+# batch's encodings: on the 4:2:0 conversion's line, so far from its orange.
+CONVERSION_444 = "#5a6e8c"
 # The PNG images, against the video (LINE) in the file size chart.
 PNG = "#1f9e89"
 # The server timeline: an image waiting in a queue, decoded (PNG), waiting
@@ -188,6 +198,7 @@ BANDS = ["#f7f5ee", "#e8e2cf", "#d8cdac", "#c6b78b", "#b19f6d"]
 PRESETS = ["#2a78d6", "#1f9e89", "#7a5cc7", "#e3a21a", "#d6456b", "#5a6e8c"]
 VIDEO_LABEL = "the video (YUV 4:2:0 + AV1)"
 CONVERSION_LABEL = "YUV 4:2:0 conversion alone"
+CONVERSION_444_LABEL = "YUV 4:4:4 conversion alone (no video: SVT-AV1 encodes only 4:2:0)"
 
 plt.rcParams.update({
     "font.family": ["Helvetica", "Arial", "DejaVu Sans"],
@@ -385,6 +396,10 @@ def loss_chart(run, loss, path):
     # A lossless video loses only the conversion: its line would hide the
     # conversion's, so it is dashed to let the conversion show through.
     same = bool(conversion) and video == conversion
+    # The metrics with no conversion column compare with the YUV frames the
+    # encoder received, which a lossless video keeps exactly: its line lies
+    # on 0 (av-metrics' 100 dB or inf), drawn over the axis to be seen.
+    nothing = bool(video) and run.lossless and not loss.conversion
     figure, axes = plt.subplots(figsize=(7.6, 3.6))
     lines = ["Each frame of the video against its PNG.",
              "**0 = identical, higher = more lost.**",
@@ -392,6 +407,7 @@ def loss_chart(run, loss, path):
              if loss.bands else "This measure has no published visibility thresholds, so no bands.",
              *(["dashed lines: where one band ends and the next starts."] if loss.bands else []),
              *(["The video loses only the conversion: its line (dashed) lies on the conversion's."] if same else []),
+             *(["The video loses nothing here (lossless): its line lies on 0."] if nothing else []),
              f"{run.settings}."]
     axes.set_title(loss.title, pad=14 + 11 * len(lines))
     for i, line in enumerate(reversed(lines)):
@@ -409,15 +425,18 @@ def loss_chart(run, loss, path):
         handles = []
         if conversion:
             handles += axes.plot(*zip(*conversion), color=CONVERSION, label=CONVERSION_LABEL, zorder=2)
-        handles += axes.plot(*zip(*video), color=LINE, label=VIDEO_LABEL, zorder=2,
-                             linestyle=(0, (5, 5)) if same else "-")
-        worst = max(video, key=lambda p: p[1])
-        axes.plot(*worst, "o", color=LINE, markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.5,
-                  zorder=3)
-        left = worst[0] > 0.6 * video[-1][0]
-        axes.annotate(f"worst: frame {worst[0]}, {worst[1]:.2f}", worst, xytext=(-8 if left else 8, 0),
-                      textcoords="offset points", ha="right" if left else "left", va="center", color=INK,
-                      fontsize=8, zorder=4)
+        handles += axes.plot(*zip(*video), color=LINE, label=VIDEO_LABEL, zorder=3 if nothing else 2,
+                             linestyle=(0, (5, 5)) if same else "-", clip_on=not nothing,
+                             linewidth=3 if nothing else None)
+        # No worst frame when none lost anything.
+        if not nothing:
+            worst = max(video, key=lambda p: p[1])
+            axes.plot(*worst, "o", color=LINE, markersize=6, markeredgecolor=SURFACE, markeredgewidth=1.5,
+                      zorder=3)
+            left = worst[0] > 0.6 * video[-1][0]
+            axes.annotate(f"worst: frame {worst[0]}, {worst[1]:.2f}", worst, xytext=(-8 if left else 8, 0),
+                          textcoords="offset points", ha="right" if left else "left", va="center", color=INK,
+                          fontsize=8, zorder=4)
         axes.set_xlim(0, max(video[-1][0], 1))
         axes.set_ylim(0, top)
         axes.legend(handles=handles + band_key(loss), loc="upper left", bbox_to_anchor=(0, -0.16), ncol=1,
@@ -769,6 +788,18 @@ def encodings(batch_dir):
 LOSSLESS_MARKER = "D"
 
 
+def yuv444_floors(batch_dir):
+    """What the conversion to YUV 4:4:4 alone loses, the mean over the
+    images, by the 4:2:0 conversion's column (butteraugli_max_yuv420 -> the
+    mean of butteraugli_max); empty if it was not measured."""
+    path = batch_dir / "yuv444.quality.json"
+    if not path.exists():
+        return {}
+    images = json.loads(path.read_text())["images"]
+    return {f"{key}_yuv420": sum(i[key] for i in images) / len(images)
+            for key in ("butteraugli_max", "butteraugli_3norm", "ssimulacra2")} if images else {}
+
+
 def lossless_key():
     return Line2D([], [], marker=LOSSLESS_MARKER, linestyle="none", color=MUTED, markersize=6,
                   markeredgecolor=SURFACE, label="lossless (no CRF)")
@@ -801,11 +832,12 @@ class CrfAxis:
         axes.set_xlabel("CRF (lower = higher quality, bigger video); lossless on the left")
 
 
-def presets_crfs_chart(sequence, runs, loss, title, notes, path):
+def presets_crfs_chart(sequence, runs, loss, title, notes, path, yuv444=None):
     """The mean of a butteraugli measure over the frames of each encoding of
     a batch against its size: one line per preset, one point per CRF, over
     the measure's visibility bands if it has any, and over what the YUV
-    4:2:0 conversion alone loses, the floor of every encoding."""
+    4:2:0 conversion alone loses, the floor of every encoding. `yuv444`:
+    what the YUV 4:4:4 conversion alone loses, dashed, if measured."""
     lossless = [r for r in runs if r.lossless and r.mean_loss(loss) is not None]
     if lossless:
         # Far bigger than the lossy videos: past a break in the size axis,
@@ -818,6 +850,8 @@ def presets_crfs_chart(sequence, runs, loss, title, notes, path):
     lines = [f"{sequence}: one point per encoding, labelled with its CRF; one line per SVT-AV1 preset.",
              *notes,
              "Orange line: what the YUV 4:2:0 conversion alone loses, the floor of every encoding.",
+             *(["Dashed gray-blue line: what the YUV 4:4:4 conversion alone loses, the floor of a lossless 4:4:4 "
+                "video (SVT-AV1 encodes only 4:2:0)."] if yuv444 is not None else []),
              *(["Right, past the break in the size axis: the lossless encodings, which lose only the conversion."]
                if lossless else [])]
     axes.set_title(title, pad=14 + 11 * len(lines))
@@ -843,12 +877,21 @@ def presets_crfs_chart(sequence, runs, loss, title, notes, path):
     floors = [f for f in floors if f is not None]
     if floors:
         floor = sum(floors) / len(floors)
-        axes.axhline(floor, color=CONVERSION, linewidth=1.5, zorder=1.5)
+        handles.append(axes.axhline(floor, color=CONVERSION, linewidth=1.5, zorder=1.5, label=CONVERSION_LABEL))
         if side:
             side.axhline(floor, color=CONVERSION, linewidth=1.5, zorder=1.5)
         axes.annotate(f"YUV 4:2:0 conversion alone, {floor:.2f}", (1, floor), xycoords=("axes fraction", "data"),
                       xytext=(-4, 4), textcoords="offset points", ha="right", va="bottom", fontsize=8,
                       color=CONVERSION, fontweight="bold")
+    if yuv444 is not None:
+        # Close to the 4:2:0 line: dashed over it, labelled at the other end.
+        for panel in (axes, side) if side else (axes,):
+            line = panel.axhline(yuv444, color=CONVERSION_444, linewidth=1.5, linestyle=(0, (4, 3)), zorder=1.6,
+                                 label=CONVERSION_444_LABEL)
+        handles.append(line)
+        axes.annotate(f"YUV 4:4:4 conversion alone, {yuv444:.2f}", (0, yuv444), xycoords=("axes fraction", "data"),
+                      xytext=(4, 4), textcoords="offset points", ha="left", va="bottom", fontsize=8,
+                      color=CONVERSION_444, fontweight="bold")
     if side:
         # All on the conversion's line, a few MiB apart: their labels go
         # above and below in turn, so that neighbors don't overlap.
@@ -1041,9 +1084,10 @@ def presets_crfs_overview(sequence, runs, path):
     save(figure, path)
 
 
-def presets_crfs_summary(sequence, runs):
+def presets_crfs_summary(sequence, runs, yuv444=None):
     """The README of presets-crfs/: its charts, and every encoding of the
-    batch in one table."""
+    batch in one table. `yuv444`: what the YUV 4:4:4 conversion alone
+    loses, by column, if measured."""
     by_name = {loss.name: loss for _, loss, _, _ in COMPARISONS}
     md = [
         f"# {sequence}: presets and CRFs compared\n",
@@ -1051,6 +1095,10 @@ def presets_crfs_summary(sequence, runs):
         f"{len(runs)} encodings, one line per SVT-AV1 preset in each chart. Lower is better everywhere; "
         "in the size charts, down and left is smaller and better. The lossless encodings are diamonds: "
         "they have no CRF and lose only the YUV 4:2:0 conversion.\n",
+        *(["The dashed gray-blue line is what the conversion to YUV 4:4:4 alone loses: the floor of a lossless 4:4:4 video, "
+           "measured without encoding, as SVT-AV1 encodes only 4:2:0. The PNGs carry almost no color detail finer "
+           "than 2x2 pixels, so 4:2:0 loses almost nothing more than 4:4:4: both floors are mostly the rounding "
+           "to 8-bit limited range.\n"] if yuv444 else []),
         "## Every setting at once\n",
         "Video size, butteraugli max-norm and 3-norm, and the encoder's working time, on a shared CRF axis: "
         "read down a column for one CRF.\n",
@@ -1067,7 +1115,8 @@ def presets_crfs_summary(sequence, runs):
         "encoding itself. Back-to-back runs heat the machine and slow the later ones.\n",
         "![Encoding time against CRF](encode-time.svg)\n",
         "## Every encoding\n",
-        "Means over the frames; *conversion alone* is the floor of every encoding.\n",
+        "Means over the frames; *conversion alone* is the floor of every encoding"
+        + ("; *4:4:4 conversion alone*, of a lossless 4:4:4 video.\n" if yuv444 else ".\n"),
         "| Preset | CRF | Video size | Smaller than PNG | Butteraugli max-norm | Butteraugli 3-norm "
         "| Encoder working | Details |",
         "|---|---|---|---|---|---|---|---|",
@@ -1084,6 +1133,9 @@ def presets_crfs_summary(sequence, runs):
     if all(floors.values()):
         md.append(f"| conversion alone | | | | {sum(floors['butteraugli-max']) / len(floors['butteraugli-max']):.2f} "
                   f"| {sum(floors['butteraugli-3norm']) / len(floors['butteraugli-3norm']):.2f} | | |")
+    if yuv444:
+        md.append(f"| 4:4:4 conversion alone | | | | {yuv444[by_name['butteraugli-max'].conversion]:.2f} "
+                  f"| {yuv444[by_name['butteraugli-3norm'].conversion]:.2f} | | |")
     md.append("")
     return "\n".join(md)
 
@@ -1120,9 +1172,14 @@ def main():
     quality = parser.add_mutually_exclusive_group()
     quality.add_argument("--crf", type=int, default=DEFAULT_CRF, help="SVT-AV1 CRF of the video")
     quality.add_argument("--lossless", action="store_true", help="the video was encoded losslessly")
+    parser.add_argument("--compare-only", action="store_true",
+                        help="only rewrite presets-crfs/, from the encodings already in results/")
     args = parser.parse_args()
 
     sequence = sequence_name(args.timestamps)
+    if args.compare_only:
+        compare(sequence, args.output_dir / sequence_dir(sequence), args.results_dir / sequence_dir(sequence))
+        return
     quality = "lossless" if args.lossless else f"crf_{args.crf}"
     encoding = sequence_dir(sequence) / f"preset_{args.preset}_{quality}"
     video_dir = args.output_dir / encoding
@@ -1190,16 +1247,25 @@ def main():
     (results / "summary.md").write_text(summary(sequence, run))
     print(f"wrote {results}")
 
-    # Every encoding of the batch, to compare the settings.
-    batch_dir = results.parent
+    compare(sequence, video_dir.parent, results.parent)
+
+
+def compare(sequence, output_batch, batch_dir):
+    """Writes presets-crfs/, every encoding of the batch in results/ to
+    compare the settings, after copying the 4:4:4 conversion's values from
+    output/ if they were measured."""
+    measured = output_batch / "yuv444.quality.json"
+    if measured.exists():
+        shutil.copyfile(measured, batch_dir / "yuv444.quality.json")
+    yuv444 = yuv444_floors(batch_dir)
     runs = encodings(batch_dir)
     folder = batch_dir / "presets-crfs"
     folder.mkdir(exist_ok=True)
     for name, loss, title, notes in COMPARISONS:
-        presets_crfs_chart(sequence, runs, loss, title, notes, folder / name)
+        presets_crfs_chart(sequence, runs, loss, title, notes, folder / name, yuv444.get(loss.conversion))
     encode_time_chart(sequence, runs, folder / "encode-time.svg")
     presets_crfs_overview(sequence, runs, folder / "compare-presets-data.svg")
-    (folder / "README.md").write_text(presets_crfs_summary(sequence, runs))
+    (folder / "README.md").write_text(presets_crfs_summary(sequence, runs, yuv444))
     print(f"wrote {folder} ({len(runs)} encodings)")
 
 
