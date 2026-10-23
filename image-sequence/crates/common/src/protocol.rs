@@ -123,6 +123,10 @@ pub struct UploadReport {
     /// Capture time of the first and last image.
     pub first_timestamp_ns: i64,
     pub last_timestamp_ns: i64,
+    /// How the video's frames are timed, as the server chose from the
+    /// capture times. Reports from before it was there are variable.
+    #[serde(default)]
+    pub timing: crate::timing::FrameTiming,
     /// The video written by the server.
     pub video_path: String,
     pub video_bytes: u64,

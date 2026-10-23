@@ -12,6 +12,13 @@
 //! with different presets and CRFs don't overwrite each other. With
 //! `--lossless` the last folder is `preset_<P>_lossless`.
 //!
+//! The video holds every image, one frame each: nothing is dropped or
+//! repeated. The server decides its frame rate once the last image is in
+//! (see `common::timing`): it encodes while the images arrive, each frame
+//! at its capture time (a variable frame rate), and if the capture times
+//! all fit a constant frame rate it then rewrites the timestamps to it,
+//! without re-encoding (see [`encoder::make_constant`]).
+//!
 //! mosaicod would store the images as Parquet files; here each `DoPut` is
 //! encoded into a video while it is received (see [`encoder`]). Sequences,
 //! sessions and topics are only kept in memory, so they are forgotten when
@@ -46,6 +53,7 @@ use common::{
         SESSION_CREATE, SESSION_FINALIZE, SequenceCreate, SessionCreateResponse, SessionUuid, TIMESTAMP_COLUMN,
         TOPIC_CREATE, TopicCreate, UploadReport, parse_topic_locator,
     },
+    timing::{FrameTiming, frame_timing},
 };
 use encoder::{Image, Settings, VideoWriter};
 use ffmpeg_the_third::Rational;
@@ -113,6 +121,23 @@ fn internal(error: impl Display) -> Status {
 
 fn decode<M: Message + Default>(body: &[u8]) -> Result<M, Status> {
     M::decode(body).map_err(|e| Status::invalid_argument(format!("bad request body: {e}")))
+}
+
+/// Checks the capture time of image `index` (`None` if it has none), and
+/// returns it: every frame is shown at its capture time, in order, one at a
+/// time, so an image needs a time after the previous image's (`previous_ns`,
+/// `None` for the first image). Two images at the same time (a resent or
+/// coarse timestamp) or a time going back (swapped times, a clock reset)
+/// are rejected.
+fn check_capture_time(index: u64, timestamp_ns: Option<i64>, previous_ns: Option<i64>) -> Result<i64, Status> {
+    let timestamp_ns =
+        timestamp_ns.ok_or_else(|| Status::invalid_argument(format!("image {index} has no timestamp")))?;
+    match previous_ns {
+        Some(previous) if timestamp_ns <= previous => Err(Status::invalid_argument(format!(
+            "image {index} has timestamp {timestamp_ns}, not after the previous one ({previous})"
+        ))),
+        _ => Ok(timestamp_ns),
+    }
 }
 
 /// Checks the columns the server reads.
@@ -237,6 +262,58 @@ impl ImageFlightService {
         }
     }
 
+    /// Receives the images of a `DoPut` after its first message and queues
+    /// them for the encoder, checking each one: a sequence with an image
+    /// that has no timestamp, or one not after the previous image's, is
+    /// rejected.
+    async fn receive_images(
+        decoder: &mut FlightDataDecoder,
+        writer: &VideoWriter,
+        report: &mut UploadReport,
+        captures: &mut Vec<i64>,
+    ) -> Result<(), Status> {
+        while let Some(decoded) = decoder.next().await {
+            let DecodedPayload::RecordBatch(batch) = decoded.map_err(Status::from)?.payload else {
+                return Err(Status::invalid_argument(
+                    "only record batches may follow the first message",
+                ));
+            };
+            let timestamps = column::<Int64Array>(&batch, TIMESTAMP_COLUMN)?;
+            let formats = column::<StringArray>(&batch, "format")?;
+            let data = column::<BinaryArray>(&batch, "data")?;
+            for row in 0..batch.num_rows() {
+                let previous_ns = (report.images > 0).then_some(report.last_timestamp_ns);
+                let timestamp = timestamps.is_valid(row).then(|| timestamps.value(row));
+                let timestamp_ns = check_capture_time(report.images, timestamp, previous_ns)?;
+                if data.is_null(row) {
+                    return Err(Status::invalid_argument(format!("image {} has no data", report.images)));
+                }
+                if formats.is_null(row) || formats.value(row) != "png" {
+                    return Err(Status::invalid_argument(format!(
+                        "unsupported format {:?}",
+                        formats.is_valid(row).then(|| formats.value(row))
+                    )));
+                }
+                if report.images == 0 {
+                    report.first_timestamp_ns = timestamp_ns;
+                }
+                report.last_timestamp_ns = timestamp_ns;
+                captures.push(timestamp_ns);
+                report.images += 1;
+                report.png_bytes += data.value(row).len() as u64;
+                let image = Image {
+                    timestamp_ns,
+                    png: data.value(row).to_vec(),
+                    received: Instant::now(),
+                };
+                if writer.send(image).await.is_err() {
+                    return Ok(()); // the encoder failed: finish() returns why
+                }
+            }
+        }
+        Ok(())
+    }
+
     async fn receive(&self, input: Streaming<FlightData>) -> Result<UploadReport, Status> {
         let mut decoder = FlightDataDecoder::new(input.map_err(FlightError::from));
         let first = decoder
@@ -276,6 +353,7 @@ impl ImageFlightService {
             height: 0,
             first_timestamp_ns: 0,
             last_timestamp_ns: 0,
+            timing: FrameTiming::Variable,
             video_path: path.display().to_string(),
             video_bytes: 0,
             seconds: 0.0,
@@ -286,53 +364,45 @@ impl ImageFlightService {
             frames: Vec::new(),
         };
 
-        while let Some(decoded) = decoder.next().await {
-            let DecodedPayload::RecordBatch(batch) = decoded.map_err(Status::from)?.payload else {
-                return Err(Status::invalid_argument(
-                    "only record batches may follow the first message",
-                ));
-            };
-            let timestamps = column::<Int64Array>(&batch, TIMESTAMP_COLUMN)?;
-            let formats = column::<StringArray>(&batch, "format")?;
-            let data = column::<BinaryArray>(&batch, "data")?;
-            for row in 0..batch.num_rows() {
-                let timestamp_ns = timestamps.value(row);
-                if formats.value(row) != "png" {
-                    return Err(Status::invalid_argument(format!(
-                        "unsupported format {:?}",
-                        formats.value(row)
-                    )));
-                }
-                // A video shows its frames in timestamp order, one at a time.
-                if report.images > 0 && timestamp_ns <= report.last_timestamp_ns {
-                    return Err(Status::invalid_argument(format!(
-                        "image {} has timestamp {timestamp_ns}, not after the previous one ({})",
-                        report.images, report.last_timestamp_ns
-                    )));
-                }
-                if report.images == 0 {
-                    report.first_timestamp_ns = timestamp_ns;
-                }
-                report.last_timestamp_ns = timestamp_ns;
-                report.images += 1;
-                report.png_bytes += data.value(row).len() as u64;
-                let image = Image {
-                    timestamp_ns,
-                    png: data.value(row).to_vec(),
-                    received: Instant::now(),
-                };
-                if writer.send(image).await.is_err() {
-                    break; // the encoder failed: finish() below returns why
-                }
-            }
-        }
-
+        // Every capture time, to choose the frame rate once all are in.
+        let mut captures = Vec::new();
+        let received = Self::receive_images(&mut decoder, &writer, &mut report, &mut captures).await;
         report.receive_seconds = started.elapsed().as_secs_f64();
 
-        let encoded = tokio::task::spawn_blocking(move || writer.finish())
-            .await
-            .map_err(internal)?
-            .map_err(internal)?;
+        // Encoded at a variable frame rate; made constant if no timing is lost.
+        report.timing = frame_timing(&captures);
+        let constant = match (&received, report.timing) {
+            (Ok(()), FrameTiming::Constant { frame_rate }) => Some(frame_rate),
+            _ => None,
+        };
+        let video = path.clone();
+        // Always waits for the encoder, even after a rejection, so that its
+        // threads are done with the file before it is removed below.
+        let encoded = tokio::task::spawn_blocking(move || {
+            let mut encoded = writer.finish()?;
+            if let Some(frame_rate) = constant {
+                encoded.video_bytes = encoder::make_constant(&video, frame_rate, encoded.frames)?;
+            }
+            anyhow::Ok(encoded)
+        })
+        .await
+        .map_err(internal)?;
+        // A rejected or failed upload leaves no video: not one of part of
+        // the sequence.
+        let encoded = match (received, encoded) {
+            (Ok(()), Ok(encoded)) if encoded.frames == report.images => encoded,
+            (received, encoded) => {
+                let _ = tokio::fs::remove_file(&path).await;
+                return Err(match (received, encoded) {
+                    (Err(status), _) => status,
+                    (Ok(()), Err(error)) => internal(error),
+                    (Ok(()), Ok(encoded)) => Status::internal(format!(
+                        "received {} images but encoded {} frames",
+                        report.images, encoded.frames
+                    )),
+                });
+            }
+        };
         report.width = encoded.width;
         report.height = encoded.height;
         report.video_bytes = encoded.video_bytes;
@@ -341,12 +411,6 @@ impl ImageFlightService {
         report.encode_seconds = encoded.encode_seconds;
         report.encode_wait_seconds = encoded.encode_wait_seconds;
         report.frames = encoded.timeline;
-        if encoded.frames != report.images {
-            return Err(Status::internal(format!(
-                "received {} images but encoded {} frames",
-                report.images, encoded.frames
-            )));
-        }
         tokio::fs::write(
             common::upload_report_path(&path),
             serde_json::to_vec_pretty(&report).map_err(internal)?,
@@ -354,7 +418,7 @@ impl ImageFlightService {
         .await
         .map_err(internal)?;
         eprintln!(
-            "{}: {} images ({} PNG bytes, {}x{}) -> {} ({} bytes) in {:.1} s \
+            "{}: {} images ({} PNG bytes, {}x{}) -> {} ({} bytes, {}) in {:.1} s \
              (encoding {:.1} s, of which {:.1} s waiting for frames; PNG decoding {:.1} s)",
             report.locator,
             report.images,
@@ -363,6 +427,7 @@ impl ImageFlightService {
             report.height,
             report.video_path,
             report.video_bytes,
+            report.timing,
             report.seconds,
             report.encode_seconds,
             report.encode_wait_seconds,
@@ -478,4 +543,84 @@ async fn main() -> anyhow::Result<()> {
         .serve_with_incoming(TcpIncoming::from(listener))
         .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The capture times of `datasets/<batch>/timestamps.csv`. Only the
+    /// times: the images need not be on disk.
+    fn capture_times(batch: &str) -> Vec<i64> {
+        let csv = common::workspace_dir().join("datasets").join(batch).join("timestamps.csv");
+        let text = std::fs::read_to_string(&csv).unwrap();
+        text.lines().skip(1).map(|line| line.rsplit_once(',').unwrap().1.parse().unwrap()).collect()
+    }
+
+    /// The images of `times` the server rejects, each checked against the
+    /// image before it.
+    fn rejected(times: &[i64]) -> Vec<u64> {
+        (0..times.len())
+            .filter(|&i| check_capture_time(i as u64, Some(times[i]), i.checked_sub(1).map(|p| times[p])).is_err())
+            .map(|i| i as u64)
+            .collect()
+    }
+
+    /// Where an upload of `times` stops: the first image rejected, if any.
+    fn upload_stops_at(times: &[i64]) -> Option<u64> {
+        let mut previous = None;
+        for (i, &t) in times.iter().enumerate() {
+            match check_capture_time(i as u64, Some(t), previous) {
+                Ok(t) => previous = Some(t),
+                Err(status) => {
+                    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+                    assert!(status.message().contains(&format!("image {i} has timestamp {t}, not after")));
+                    return Some(i as u64);
+                }
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn accepts_the_valid_scenarios() {
+        for batch in ["regular/batch_300", "frame-drops/batch_283", "jitter/batch_300", "rate-change/batch_210",
+                      "sparse/batch_020"] {
+            assert_eq!(upload_stops_at(&capture_times(batch)), None, "{batch}");
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_timestamps() {
+        // Frames 75, 150, 151 and 225 repeat the time of the frame before.
+        assert_eq!(rejected(&capture_times("duplicate-timestamps/batch_300")), [75, 150, 151, 225]);
+        // The upload stops at the first one; the batch before it is valid.
+        assert_eq!(upload_stops_at(&capture_times("duplicate-timestamps/batch_300")), Some(75));
+        assert_eq!(upload_stops_at(&capture_times("duplicate-timestamps/batch_076")), Some(75));
+        assert_eq!(upload_stops_at(&capture_times("duplicate-timestamps/batch_075")), None);
+    }
+
+    #[test]
+    fn rejects_times_going_back() {
+        // Frame 91 swaps its time with frame 90's; from frame 180 the clock
+        // is 500 ms behind.
+        assert_eq!(rejected(&capture_times("out-of-order/batch_300")), [91, 180]);
+        assert_eq!(upload_stops_at(&capture_times("out-of-order/batch_300")), Some(91));
+        assert_eq!(upload_stops_at(&capture_times("out-of-order/batch_092")), Some(91));
+        assert_eq!(upload_stops_at(&capture_times("out-of-order/batch_091")), None);
+    }
+
+    #[test]
+    fn rejects_an_image_without_a_timestamp() {
+        let status = check_capture_time(3, None, Some(100)).unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+        assert_eq!(status.message(), "image 3 has no timestamp");
+        assert!(check_capture_time(0, None, None).is_err());
+    }
+
+    #[test]
+    fn accepts_the_first_image_at_any_time() {
+        assert_eq!(check_capture_time(0, Some(-5), None).unwrap(), -5);
+        assert_eq!(check_capture_time(1, Some(101), Some(100)).unwrap(), 101);
+    }
 }

@@ -4,6 +4,8 @@
 //!   schema of the image record batches.
 //! - [`images`]: reading a `timestamps.csv`, decoding the PNG images and
 //!   converting them to the YUV 4:2:0 frames the video is encoded from.
+//! - [`timing`]: whether the capture times make a constant- or a
+//!   variable-frame-rate video.
 
 use std::{
     fmt,
@@ -14,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod images;
 pub mod protocol;
+pub mod timing;
 
 /// Matroska tag holding the capture time of the first image, in nanoseconds
 /// since the Unix epoch. The video timestamps start at 0, so a frame was

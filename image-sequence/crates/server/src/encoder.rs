@@ -18,12 +18,25 @@
 //! but the server does not let it be chosen.
 //!
 //! The first image's capture time is written as the [`CAPTURE_START_TAG`]
-//! tag, and each frame's timestamp is its capture time minus that one.
-//! FFmpeg's Matroska muxer stores timestamps in milliseconds, so the capture
-//! times come back rounded to the millisecond.
+//! tag, and each frame's timestamp is its capture time minus that one: a
+//! variable frame rate. FFmpeg's Matroska muxer stores timestamps in
+//! milliseconds, so the capture times come back rounded to the millisecond.
+//!
+//! Every frame lasts until the next one (see [`Packets`]). The stream
+//! declares no frame rate: with no `DefaultDuration` in the track, Matroska
+//! defines a frame's duration as the gap to the next frame's timestamp
+//! (RFC 9559, `BlockDuration`), so the file states only the capture times.
+//! FFmpeg's muxer then writes no `BlockDuration` either (it writes one only
+//! against a `DefaultDuration`). The last frame, which no frame follows,
+//! ends at the segment's `Duration`: its timestamp plus its packet duration.
+//!
+//! Once every image is in, the server may make the video constant-frame-rate
+//! with [`make_constant`]: the same packets, frame *k* at *k* frame periods,
+//! and only then does the stream declare a rate (`DefaultDuration`).
 
 use std::{
-    path::PathBuf,
+    collections::VecDeque,
+    path::{Path, PathBuf},
     sync::mpsc,
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -33,10 +46,11 @@ use anyhow::{anyhow, bail, Context, Result};
 use common::{
     images::{decode_png, rgb_to_yuv420, Yuv420},
     protocol::FrameTimes,
+    timing::FrameRate,
     PixelFormat, CAPTURE_START_TAG,
 };
 use ffmpeg_the_third::{
-    self as ffmpeg, codec, color, encoder, format, frame, util::format::Pixel, Dictionary, Packet,
+    self as ffmpeg, codec, color, encoder, format, frame, media, util::format::Pixel, Dictionary, Packet,
     Rational,
 };
 use rayon::prelude::*;
@@ -233,19 +247,85 @@ fn ffmpeg_frame(yuv: &Yuv420, format: PixelFormat) -> frame::Video {
     frame
 }
 
-/// Sends every packet the encoder has ready to the muxer.
-fn write_packets(
-    encoder: &mut encoder::Video,
-    output: &mut format::context::Output,
+/// The encoder's packets on their way to the muxer, each with the
+/// timestamp and the duration of its frame.
+///
+/// An AV1 encoder outputs one packet (temporal unit) per frame shown, in
+/// the order they are shown, so the k-th packet is the k-th frame sent.
+/// Its timestamp is set from that frame rather than taken from SVT-AV1,
+/// which can give the wrong frame's timestamp when the frames are unevenly
+/// spaced (a hidden frame's, from far ahead), out of order for the muxer.
+///
+/// Every frame lasts until the next one, so a packet is held until the
+/// next one comes. The last frame, which no frame follows, lasts as long as
+/// the gap before it (the camera's latest spacing), or one nominal frame
+/// period if it is the only one.
+struct Packets {
+    /// Timestamps of the frames sent whose packet is not out yet, oldest
+    /// first, in nanoseconds.
+    pending: VecDeque<i64>,
+    /// The last packet received, waiting for the next one to end it.
+    held: Option<Packet>,
+    /// The gap before the last packet written, in nanoseconds.
+    last_gap: Option<i64>,
+    /// One nominal frame period, in nanoseconds.
+    nominal_ns: i64,
     stream_time_base: Rational,
-) -> Result<()> {
-    let mut packet = Packet::empty();
-    while encoder.receive_packet(&mut packet).is_ok() {
-        packet.set_stream(0);
-        packet.rescale_ts(NANOSECONDS, stream_time_base);
-        packet.write_interleaved(output)?;
+    written: u64,
+}
+
+impl Packets {
+    fn new(frame_rate: Rational, stream_time_base: Rational) -> Self {
+        let nominal_ns = i64::from(frame_rate.denominator()) * 1_000_000_000 / i64::from(frame_rate.numerator());
+        Self {
+            pending: VecDeque::new(),
+            held: None,
+            last_gap: None,
+            nominal_ns,
+            stream_time_base,
+            written: 0,
+        }
     }
-    Ok(())
+
+    /// Takes the packets the encoder has ready, writing every one but the
+    /// last. A packet with no frame left would be a frame the encoder
+    /// added: it fails instead.
+    fn receive(&mut self, encoder: &mut encoder::Video, output: &mut format::context::Output) -> Result<()> {
+        let mut packet = Packet::empty();
+        while encoder.receive_packet(&mut packet).is_ok() {
+            let pts = self
+                .pending
+                .pop_front()
+                .context("the encoder output more packets than the frames it was given")?;
+            packet.set_pts(Some(pts));
+            packet.set_dts(Some(pts));
+            if let Some(previous) = self.held.take() {
+                let gap = pts - previous.pts().unwrap_or(pts);
+                self.last_gap = Some(gap);
+                self.write(previous, gap, output)?;
+            }
+            self.held = Some(std::mem::replace(&mut packet, Packet::empty()));
+        }
+        Ok(())
+    }
+
+    /// Writes the last packet, and returns how many were written.
+    fn finish(mut self, output: &mut format::context::Output) -> Result<u64> {
+        if let Some(last) = self.held.take() {
+            let duration = self.last_gap.unwrap_or(self.nominal_ns);
+            self.write(last, duration, output)?;
+        }
+        Ok(self.written)
+    }
+
+    fn write(&mut self, mut packet: Packet, duration_ns: i64, output: &mut format::context::Output) -> Result<()> {
+        packet.set_duration(duration_ns);
+        packet.set_stream(0);
+        packet.rescale_ts(NANOSECONDS, self.stream_time_base);
+        packet.write_interleaved(output)?;
+        self.written += 1;
+        Ok(())
+    }
 }
 
 fn encode(
@@ -307,6 +387,9 @@ fn encode(
     let mut stream = output.add_stream(codec)?;
     stream.set_time_base(NANOSECONDS);
     stream.copy_parameters_from_context(&encoder);
+    // No avg_frame_rate: the muxer would declare it as DefaultDuration, a
+    // constant rate the capture times don't have. The nominal rate is only
+    // for SVT-AV1's rate control.
     output
         .metadata_mut()
         .set(CAPTURE_START_TAG, first_ns.to_string());
@@ -315,6 +398,7 @@ fn encode(
     let stream_time_base = output.stream(0).context("no output stream")?.time_base();
 
     let mut count = 0u64;
+    let mut packets = Packets::new(settings.frame_rate, stream_time_base);
     // The first frame's encoding includes opening the encoder.
     let (mut next, mut taken) = (Some(first), started);
     while let Some(Frame {
@@ -335,7 +419,8 @@ fn encode(
         let mut frame = ffmpeg_frame(&yuv, settings.pixel_format);
         frame.set_pts(Some(timestamp_ns - first_ns));
         encoder.send_frame(&frame)?;
-        write_packets(&mut encoder, &mut output, stream_time_base)?;
+        packets.pending.push_back(timestamp_ns - first_ns);
+        packets.receive(&mut encoder, &mut output)?;
         let waiting = Instant::now();
         timeline.push(FrameTimes {
             received: seconds(received),
@@ -350,7 +435,11 @@ fn encode(
         wait += taken - waiting;
     }
     encoder.send_eof()?;
-    write_packets(&mut encoder, &mut output, stream_time_base)?;
+    packets.receive(&mut encoder, &mut output)?;
+    let packets = packets.finish(&mut output)?;
+    if packets != count {
+        bail!("the encoder output {packets} packets for {count} frames");
+    }
     output.write_trailer()?;
     drop(output); // closes the file
 
@@ -364,6 +453,76 @@ fn encode(
         encode_wait_seconds: wait.as_secs_f64(),
         timeline,
     })
+}
+
+/// Rewrites the video at `path` to the constant `frame_rate`, without
+/// re-encoding: every packet is copied in order, frame *k* at *k* frame
+/// periods, and the stream declares the rate (Matroska's `DefaultDuration`).
+/// The tags, [`CAPTURE_START_TAG`] among them, are kept. AV1 packets hold no
+/// timestamps of their own, so only the container's change.
+///
+/// Fails, leaving the video as it is, unless it holds exactly `frames`
+/// packets in presentation order: no frame is dropped or repeated. Returns
+/// the size of the new video.
+pub fn make_constant(path: &Path, frame_rate: FrameRate, frames: u64) -> Result<u64> {
+    let rate = Rational(frame_rate.num, frame_rate.den);
+    let period = rate.invert();
+    let temporary = path.with_extension("constant.mkv");
+    let mut input = format::input(path).with_context(|| format!("opening {}", path.display()))?;
+    let mut output =
+        format::output(&temporary).with_context(|| format!("creating {}", temporary.display()))?;
+
+    let source = input
+        .streams()
+        .best(media::Type::Video)
+        .context("the video has no video stream")?;
+    let index = source.index();
+    let mut stream = output.add_stream(codec::Id::None)?;
+    stream.set_parameters(source.parameters());
+    // SAFETY: a plain field write on parameters the muxer has not used yet.
+    unsafe { (*stream.parameters_mut().as_mut_ptr()).codec_tag = 0 };
+    stream.set_time_base(period);
+    stream.set_avg_frame_rate(rate);
+    stream.set_rate(rate);
+    let tags: Vec<(String, String)> =
+        input.metadata().iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    for (key, value) in tags {
+        output.metadata_mut().set(&key, &value);
+    }
+    output.write_header()?;
+    let stream_time_base = output.stream(0).context("no output stream")?.time_base();
+
+    let mut count = 0u64;
+    let mut last_pts = None;
+    for packet in input.packets() {
+        let (from, mut packet) = packet?;
+        if from.index() != index {
+            continue;
+        }
+        // Presentation order, so the k-th packet is the k-th frame.
+        if packet.pts().is_none() || packet.pts() <= last_pts {
+            bail!("packet {count} of {} is not after the previous one", path.display());
+        }
+        last_pts = packet.pts();
+        let k = count as i64;
+        packet.set_pts(Some(k));
+        packet.set_dts(Some(k));
+        packet.set_duration(1);
+        packet.set_position(-1);
+        packet.set_stream(0);
+        packet.rescale_ts(period, stream_time_base);
+        packet.write_interleaved(&mut output)?;
+        count += 1;
+    }
+    output.write_trailer()?;
+    drop(output); // closes the file
+    if count != frames {
+        let _ = std::fs::remove_file(&temporary);
+        bail!("{} holds {count} frames, not the {frames} encoded", path.display());
+    }
+    std::fs::rename(&temporary, path)
+        .with_context(|| format!("replacing {} with {}", path.display(), temporary.display()))?;
+    Ok(std::fs::metadata(path)?.len())
 }
 
 /// Parses a frame rate written as `30000/1001` or `30`.
