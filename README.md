@@ -20,6 +20,9 @@ are looking for answers to these questions:
 For now, we have identified **AV1**, **H.264**, **H.265 (HEVC)** and **VP9**
 as the supported compression codecs, with resolutions from 360p up to 8K.
 
+The questions still open on the ontology models and serialization formats are
+collected in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
+
 ## Proofs of concept
 
 | POC | Description |
