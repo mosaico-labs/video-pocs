@@ -11,7 +11,8 @@
 # Starts the server, uploads the batch with the client, stops the server,
 # then runs the quality tool and scripts/report.py (with uv). PRESET and CRF default to the
 # server's (9 and 30); with LOSSLESS=1 the CRF is ignored and everything goes
-# to preset_<P>_lossless/ instead. Logs go to output/logs/<that folder>/.
+# to preset_<P>_lossless/ instead. Logs go to
+# output/logs/<scenario>/<batch>/<that folder>/.
 #
 # A lossless video decodes to the same frames at every preset, so its quality
 # is the same too: when another preset's lossless video of the batch was
@@ -33,10 +34,11 @@ else
     SETTINGS=(--preset "$PRESET" --crf "$CRF")
     NAME="preset_${PRESET}_crf_${CRF}"
 fi
-LOGS="output/logs/$NAME"
 # output/<scenario>/<batch>, from datasets/<scenario>/<batch>/timestamps.csv.
 BATCH_DIR="$(dirname "$TIMESTAMPS")"
-OUTPUT="output/$(basename "$(dirname "$BATCH_DIR")")/$(basename "$BATCH_DIR")"
+BATCH="$(basename "$(dirname "$BATCH_DIR")")/$(basename "$BATCH_DIR")"
+OUTPUT="output/$BATCH"
+LOGS="output/logs/$BATCH/$NAME"
 mkdir -p "$LOGS"
 
 cargo build --release --quiet
