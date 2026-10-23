@@ -1,0 +1,17 @@
+image,timestamp_ns
+datasets/ImageSequence/001/000_8K.png,1767225600000000000
+datasets/ImageSequence/001/010_8K.png,1767225600333666667
+datasets/ImageSequence/001/030_8K.png,1767225601001000000
+datasets/ImageSequence/001/040_8K.png,1767225601334666667
+datasets/ImageSequence/001/060_8K.png,1767225602002000000
+datasets/ImageSequence/001/070_8K.png,1767225602335666667
+datasets/ImageSequence/001/090_8K.png,1767225603003000000
+datasets/ImageSequence/001/100_8K.png,1767225603336666667
+datasets/ImageSequence/001/120_8K.png,1767225604004000000
+datasets/ImageSequence/001/130_8K.png,1767225604337666667
+datasets/ImageSequence/001/150_8K.png,1767225605005000000
+datasets/ImageSequence/001/160_8K.png,1767225605338666667
+datasets/ImageSequence/001/180_8K.png,1767225606006000000
+datasets/ImageSequence/001/190_8K.png,1767225606339666667
+datasets/ImageSequence/001/210_8K.png,1767225607007000000
+datasets/ImageSequence/001/220_8K.png,1767225607340666667

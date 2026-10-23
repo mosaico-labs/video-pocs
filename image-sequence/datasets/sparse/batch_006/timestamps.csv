@@ -1,0 +1,7 @@
+image,timestamp_ns
+datasets/ImageSequence/001/000_8K.png,1767225600000000000
+datasets/ImageSequence/001/010_8K.png,1767225600333666667
+datasets/ImageSequence/001/030_8K.png,1767225601001000000
+datasets/ImageSequence/001/040_8K.png,1767225601334666667
+datasets/ImageSequence/001/060_8K.png,1767225602002000000
+datasets/ImageSequence/001/070_8K.png,1767225602335666667
