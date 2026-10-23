@@ -123,6 +123,10 @@ check(packets == frames, f"the video holds {frames} frames ({packets})")
 upload = json.load(open(os.path.join(video_dir, "camera.upload.json")))
 check(upload["images"] == frames, f"the server received {frames} images ({upload['images']})")
 check(upload["pixel_format"] == "yuv420p", f"the server encoded yuv420p ({upload['pixel_format']})")
+# The regular batch's capture times are evenly spaced: no timing is lost at a constant rate.
+timing = upload.get("timing", {})
+check(timing == {"mode": "constant", "frame_rate": {"num": 30000, "den": 1001}},
+      f"the video is at the constant frame rate 30000/1001 ({timing})")
 check(captures and (upload["first_timestamp_ns"], upload["last_timestamp_ns"]) == (captures[0], captures[-1]),
       "the server kept the first and last capture times")
 check(upload["video_bytes"] == os.path.getsize(video), "the reported video size matches the file")
