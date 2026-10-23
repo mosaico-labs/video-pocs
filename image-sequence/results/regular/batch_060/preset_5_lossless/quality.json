@@ -1,19 +1,19 @@
 {
   "conversion_reused": 60,
-  "decode_seconds": 34.873986916,
+  "decode_seconds": 35.063525625,
   "decoder": "libdav1d",
   "frames": 60,
   "jobs": 4,
-  "measure_seconds": 539.845686542,
+  "measure_seconds": 491.435626875,
   "stage_seconds": {
-    "CIEDE2000": 132.27794191700002,
-    "MS-SSIM": 220.263170875,
-    "PNG decoding, YUV 4:2:0": 40.202152292,
-    "PSNR": 7.590734003000001,
-    "PSNR-HVS": 75.334500751,
-    "SSIMULACRA2": 572.4702315440001,
-    "butteraugli": 293.636698998,
-    "linear RGB": 131.77777,
-    "waiting for butteraugli": 217.74006287800006
+    "CIEDE2000": 118.382127454,
+    "MS-SSIM": 197.59341191900003,
+    "PNG decoding, YUV 4:2:0": 36.814242538999984,
+    "PSNR": 6.005486081000003,
+    "PSNR-HVS": 59.74925466700002,
+    "SSIMULACRA2": 486.67641528900003,
+    "butteraugli": 261.129907292,
+    "linear RGB": 114.24359078699997,
+    "waiting for butteraugli": 226.98275525000005
   }
 }

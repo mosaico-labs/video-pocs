@@ -737,8 +737,8 @@ z
    <g id="patch_4">
     <path d="M 257.284126 318.424 
 L 351.975036 318.424 
-L 351.975036 316.993047 
-L 257.284126 316.993047 
+L 351.975036 316.993046 
+L 257.284126 316.993046 
 z
 " clip-path="url(#p79533ffb02)" style="fill: #2a78d6"/>
    </g>
@@ -935,7 +935,7 @@ z
    </g>
    <g id="text_14">
     <!-- 12.14 MiB -->
-    <g style="fill: #0b0b0b" transform="translate(283.871222 311.46375) scale(0.09 -0.09)">
+    <g style="fill: #0b0b0b" transform="translate(283.871222 311.463749) scale(0.09 -0.09)">
      <defs>
       <path id="Helvetica-Bold-15" d="M 2225 3609 
 Q 2066 3800 1769 3800 
