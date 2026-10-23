@@ -9,23 +9,44 @@
 > suggest new experiments through issues or add your own through pull
 > requests.
 
-Proofs of concept for managing videos inside
-[mosaicod](https://github.com/mosaico-labs/mosaico): how videos should be
-serialized and stored in mosaicod, and how they are decoded and transcoded.
-The videos are in **AV1**, **H.264**, **H.265 (HEVC)** and **VP9**, from 360p
-up to 8K.
+A list of proofs of concept for understanding how videos should be managed
+inside [mosaicod](https://github.com/mosaico-labs/mosaico). For example, we
+are looking for answers to these questions:
+
+- How should a video be serialized and stored in mosaicod?
+- How should the server decode and transcode it?
+- How should a video be streamed out of mosaicod, and in which format?
+
+For now, we have identified **AV1**, **H.264**, **H.265 (HEVC)** and **VP9**
+as the supported compression codecs, with resolutions from 360p up to 8K.
 
 ## Proofs of concept
 
 | POC | Description |
 |---|---|
 | [video-parquet](video-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-parquet/results/RESULTS.md](video-parquet/results/RESULTS.md). |
-| [image-sequence](image-sequence/README.md) | Uploads timestamped 8K PNG images with mosaicod's upload flow; the server encodes them into an 8-bit AV1 `.mkv` video with FFmpeg (SVT-AV1), one frame per image at its capture time (to the millisecond): at a constant frame rate when the capture times allow it, otherwise a variable one. A quality tool compares the video with the images (PSNR, PSNR-HVS, MS-SSIM, CIEDE2000, SSIMULACRA2, butteraugli), as losses over visibility thresholds. Results: one summary per encoding, e.g. [preset 9, CRF 30](image-sequence/results/regular/batch_060/preset_9_crf_30/summary.md), SVT-AV1 presets 5, 6 and 9 at CRF 18–35 [compared](image-sequence/results/regular/batch_060/presets-crfs/README.md), and the [capture-time datasets](image-sequence/datasets/README.md) (camera drops, jitter, rate changes, ...) [compared](image-sequence/results/dataset-comparisons/README.md) at preset 5. |
+| [image-sequence](image-sequence/README.md) | Uploads timestamped 8K PNG images with mosaicod's upload flow; the server encodes them into an 8-bit AV1 `.mkv` video with FFmpeg (SVT-AV1), one frame per image at its capture time (to the millisecond): at a constant frame rate when the capture times allow it, otherwise a variable one. A quality tool compares the video with the images (PSNR, PSNR-HVS, MS-SSIM, CIEDE2000, SSIMULACRA2, butteraugli), as losses over visibility thresholds. Results: one summary per encoding, e.g. SVT-AV1 presets 5, 6 and 9 at CRF 18–35 [compared](image-sequence/results/regular/batch_060/presets-crfs/README.md), and the [capture-time datasets](image-sequence/datasets/README.md) (camera drops, jitter, rate changes, ...) [compared](image-sequence/results/dataset-comparisons/README.md) at preset 5. |
 
 ## Datasets
 
-The videos and images used by the proofs of concept: how to build them,
-how to inspect them, and how they are organized.
+The videos and images used by the proofs of concept. The following sections
+explain how to build them from scratch, what they contain, and how they relate
+to the ways a user can store video data in mosaicod:
+
+- [Building the datasets](#building-the-datasets): one script downloads every
+  dataset from its original source (~65 GB), or only the ones you need, and
+  can check each file against its SHA-256.
+- [Inspecting a dataset video](#inspecting-a-video): an `ffprobe` command to read a
+  video's codec, resolution, frame rate and pixel format.
+- [Dataset structure](#dataset-structure): the three ways of storing video
+  data in mosaicod, and the dataset built for each of them:
+  - [Image Sequence](#image-sequence): three SEPE 8K sequences as lossless
+    8-bit PNG frames with an alpha channel (`rgba`), 300 frames each.
+  - [Video Sequences](#video-sequences): a 10-minute 4K AV1 video split,
+    without re-encoding, into 11 self-contained files of about 200 MB.
+  - [Video Chunks](#video-chunks): whole videos in AV1, H.264, H.265 (HEVC)
+    and VP9, from 360p to 8K (Big Buck Bunny, YouTube, SEPE 8K), plus one
+    uncompressed 4K sequence (Ultra Video Group RiverBank).
 
 ### Building the datasets
 
@@ -48,12 +69,6 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 | `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) | – (raw `.yuv`, no container) |
 | `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB | image-sequence (`001/`) |
 
-video-parquet uploads every video it finds under `VideoChunks/`, so it
-uses whichever of `bbb`, `youtube` and `sepe` are built. image-sequence
-uses the frames of `ImageSequence/001/`: its end-to-end test needs only the
-first 60, which it downloads by itself; the other batches of its datasets,
-some of its published results among them, need all 300.
-
 - **Requirements**: `curl`, `python3`, `yt-dlp` (for `youtube` and
   `sequences`), `ffmpeg` and `ffprobe` (for `sequences`), 7-Zip (`7zz` or
   `7z`) or, without it, [`uv`](https://docs.astral.sh/uv/) (for `uvg`, to
@@ -64,10 +79,10 @@ some of its published results among them, need all 300.
   [`scripts/datasets.sha256`](scripts/datasets.sha256). YouTube can re-encode
   its videos, so a mismatch in `youtube` or `sequences` can mean the video
   changed on YouTube rather than a broken download.
-- **Environment variables**: `DATASETS_DIR` builds somewhere else than
-  `datasets/`. `JOBS` sets the number of parallel downloads (default 4).
+- **Environment variables**: `DATASETS_DIR` builds in a different folder than
+  `datasets/`. `JOBS` sets the number of parallel downloads ongoing (default 4).
 
-### Inspecting a video
+### Inspecting a dataset video
 
 To inspect a video once the datasets are built:
 
@@ -77,28 +92,39 @@ ffprobe -v error -select_streams v:0 \
   datasets/VideoChunks/BigBuckBunny/1080p/Big_Buck_Bunny_30MB_av1.mp4
 ```
 
-- `-v error`: print only errors, not ffprobe's banner and log. **Optional**: it
+- `-v error`: print only errors. **Optional**, it
   only keeps the output clean.
 - `-select_streams v:0`: look only at the first video stream. A file can also
   hold audio or subtitle streams. **Removable** if the file has only one video stream.
-- `-show_entries stream=...`: print only these fields. Without it, ffprobe
-  prints no fields at all (`-v error` also hides its summary), so **mandatory**.
+- `-show_entries stream=...`: print only these fields data. Without it, ffprobe
+  prints any information at all, so **mandatory**.
   - `codec_name`: the compression format (`av1`, `h264`, `hevc`, `vp9`).
   - `width`, `height`: frame size in pixels.
   - `r_frame_rate`: frames per second, as a fraction (`30/1`, `60000/1001` = 59.94).
+    ffprobe estimates it from the frame times, so it always shows a rate,
+    even when the video has a variable frame rate (VFR). To spot a VFR
+    video, also print `avg_frame_rate`: it is `0/0` when no single rate fits
+    the frames.
   - `pix_fmt`: how each pixel's colors are stored, e.g. `yuv420p` (8-bit) or
     `yuv420p10le` (10-bit).
 
 ### Dataset structure
 
-The datasets follow the three ways a user can store video data in mosaicod,
-whatever mosaicod's internal representation is:
+The datasets follow three hypothesized ontology models for sending an image
+sequence or a video to mosaicod. In mosaicod, an **ontology model** is the
+type that describes the data. A **topic** stores one time series of a single
+ontology model as timestamped **messages**, while a **sequence** groups the
+topics of one recording. Each topic also has a **serialization format**, which
+sets how mosaicod stores its messages in Parquet files (compression and
+statistics). For now, mosaicod defines `default`, `ragged` and `image`. Each
+ontology model would be stored as a topic with its own serialization format,
+and they differ in what one message holds:
 
-| Dataset | What it is |
-|---|---|
-| [Image Sequence](#image-sequence) | Temporally ordered images or frames |
-| [Video Sequences](#video-sequences) | Ordered, self-contained video files |
-| [Video Chunks](#video-chunks) | One video file, cut into temporal chunks |
+| Dataset | What it is | One message | Serialization format |
+|---|---|---|---|
+| [Image Sequence](#image-sequence) | Temporally ordered images or frames | One image | Not defined yet |
+| [Video Sequences](#video-sequences) | Ordered, self-contained video files | One video file | Not defined yet |
+| [Video Chunks](#video-chunks) | One video file, cut into temporal chunks | One chunk | Not defined yet |
 
 Each one has its own folder under `datasets/`, named after it (for example
 `datasets/ImageSequence/`).
@@ -107,7 +133,9 @@ Each one has its own folder under `datasets/`, named after it (for example
 
 > Temporally ordered images or frames.
 
-A sequence of PNG images, all with the same resolution and pixel format.
+A series of images, all with the same resolution and pixel format. Its
+ontology model in mosaicod would accept any image format, but here all images
+are PNG files.
 
 The frames come from the
 [SEPE 8K dataset](https://github.com/talshoura/SEPE-8K-Dataset), which
@@ -123,10 +151,10 @@ sequence: [001](https://drive.google.com/drive/folders/1wX3zV3zAJcS7l59DykFUdKLY
 | `datasets/ImageSequence/002/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~5.9 GiB |
 | `datasets/ImageSequence/003/` | 300 (`000_8K.png`–`299_8K.png`) | 8192x4320 | `rgba` | ~7.0 GiB |
 
-Each folder is one SEPE sequence, one PNG per frame. The sequence was shot at
-29.97 frames per second (exactly 30000/1001), so its 300 frames are 10 seconds
-of video. A PNG file stores only a picture, not when it is shown, so the frame
-rate has to be given again to play the frames as a video, for example:
+Each folder is one SEPE sequence, one PNG per frame. Every sequence was shot
+at 29.97 frames per second (exactly 30000/1001), so its 300 frames are 10
+seconds of video. A PNG file stores only the image, not when to show it, so
+the frame rate has to be given to play the frames as a video, for example:
 
 ```sh
 ffplay -framerate 30000/1001 -i datasets/ImageSequence/001/%03d_8K.png
@@ -143,19 +171,20 @@ on its own, and the videos are coherent with each other, so they can be joined
 into one video without re-encoding.
 
 **`datasets/VideoSequences/AV1/4K/Earth_000.mp4`–`Earth_010.mp4`**:
-`Earth_10_minutes.mp4` from [YouTube](#youtube) (AV1, 3840x2160, 59.94 fps, 10-bit
+`Earth_10_minutes.mp4`, one of the [YouTube](#youtube) videos of Video Chunks (AV1, 3840x2160, 59.94 fps, 10-bit
 `yuv420p10le`, HDR PQ, 614.73 s, 2.13 GB, no audio), split into 11 files of
 about 200 MB each.
 
-How they were built:
+How they were built, without re-encoding:
 
-1. The cut points were chosen on file size, not on duration: for every 200 MB
-   of video, the keyframe closest to that boundary. So each file starts on a
-   keyframe and decodes on its own. Keyframes are up to 7 s apart (~24 MB),
-   so the files are 186–223 MB (53–68 s); the last one holds the remaining
-   114 MB (33 s).
-2. The video was split with ffmpeg's segment muxer, copying the stream
-   (`-c copy`), with no **transcoding**:
+1. **Choose the cut points.** A file can only start on a **keyframe**: a
+   complete picture, the only kind of frame decoding can start from. So each
+   file ends at the keyframe closest to 200 MB after its start. Keyframes are
+   up to 7 s (~24 MB) apart, so the files are 186–223 MB (53–68 s), and the
+   last one holds the remaining 114 MB (33 s).
+2. **Split the video** at the chosen keyframes, copying the compressed frames
+   instead of **transcoding** them. Transcoding means decoding and encoding
+   again, which is slow and loses quality:
 
    ```sh
    ffmpeg -i Earth_10_minutes.mp4 -c copy -f segment \
@@ -165,90 +194,48 @@ How they were built:
      Earth_%03d.mp4
    ```
 
-   A video is stored as compressed frames. Most frames only store what changed
-   since earlier frames. A **keyframe** is a complete picture, so decoding can
-   start only there. **Transcoding** means decoding and compressing again: it
-   is slow and loses quality. Copying keeps the compressed frames as they are.
+   - `-c copy`: copy the frames, no transcoding.
+   - `-f segment -segment_times ...`: start a new file at each cut time
+     (ffmpeg cuts at the first keyframe at or after it).
+   - `-reset_timestamps 1`: start each file's clock at 0, so it plays on its
+     own.
+   - `-segment_format mp4 -segment_format_options movflags=+faststart`: write
+     MP4 files with their index at the start, so a player can begin showing
+     the video before reading the whole file. **Optional**.
+   - `Earth_%03d.mp4`: output names, numbered from `000`.
 
-   - `-i Earth_10_minutes.mp4`: the input file.
-   - `-c copy`: copy the compressed frames instead of transcoding. **Required**.
-   - `-f segment`: write the output as several files instead of one. **Required**.
-   - `-segment_times`: where to cut, in seconds. ffmpeg cuts at the first
-     keyframe at or after each time. These are the chosen keyframes' times
-     (see below), as `ffprobe` prints them, rounded to the microsecond.
-     **Required**.
-   - `-reset_timestamps 1`: each file's clock starts at 0, so each one plays as
-     a normal video on its own. **Required for independent files**.
-   - `-segment_format mp4`: the file format (container) of each piece. **Optional**:
-     ffmpeg guesses it from the `.mp4` extension.
-   - `-segment_format_options movflags=+faststart`: an MP4 file has an index
-     that says where each frame is in the file, and a player must read it
-     before showing anything. ffmpeg writes the file from start to end, one
-     frame after the other, and learns each frame's position only once it has
-     written it. So by default it writes the index last, at the end of the
-     file. With `faststart`, once everything is written, ffmpeg does one more
-     pass that moves the index to the beginning of the file. A player reading
-     the file over a network can then start right away instead of first
-     fetching the end. **Optional**: it does not change the frames.
-   - `Earth_%03d.mp4`: output names. `%03d` becomes the 3-digit file number,
-     starting from `000`.
+   The cut times are rounded to the microsecond. The first two, 63.496767 and
+   126.960167, round up to just after their keyframes, so ffmpeg cut at the
+   next keyframes instead, 68.435 s and 130.330 s. That is why `Earth_000.mp4`
+   is 223 MB (68 s) and `Earth_001.mp4` 208 MB (62 s).
 
-   The cut times come from the video itself:
+<details>
+<summary>How the cut times were computed</summary>
 
-   1. List every frame of the video, in file order, with its time, its size
-      in bytes and whether it is a keyframe.
-   2. Walk through the frames, adding up their sizes. This gives, for each
-      keyframe, its position in the file (the bytes before it).
-   3. The first cut should be at 200 MB (200,000,000 bytes). A cut can only
-      be at a keyframe, so pick the keyframe whose position is closest to
-      200 MB: the last one before it or the first one after it.
-   4. The next cut should be 200 MB after the chosen keyframe. Pick the
-      closest keyframe again, and repeat until the end of the video.
+`ffprobe` lists every frame with its time, size and keyframe flag. `awk` adds
+up the sizes to get each keyframe's position in the file, then picks the
+keyframe closest to 200 MB after the previous cut, again and again:
 
-   In pseudocode:
+```sh
+ffprobe -v error -select_streams v:0 -show_entries packet=pts_time,size,flags \
+  -of csv=p=0 Earth_10_minutes.mp4 > frames.csv   # one "time,bytes,flags" line per frame; K = keyframe
+awk -F, -v target=200000000 '
+  $3 ~ /K/ { time[++n] = $1; bytes[n] = total }   # each keyframe: its time, and the bytes before it
+  { total += $2 }
+  END {
+    next_cut = target
+    for (i = 2; i <= n; i++) {
+      if (bytes[i] < next_cut) continue
+      # this keyframe or the previous one, whichever is closer to next_cut
+      k = (bytes[i] - next_cut < next_cut - bytes[i-1] || bytes[i-1] <= last) ? i : i - 1
+      cuts = cuts sep time[k]; sep = ","
+      last = bytes[k]; next_cut = last + target
+    }
+    print cuts
+  }' frames.csv
+```
 
-   ```
-   target = 200 MB
-   P = none                                   # the previous keyframe
-   for each keyframe K, in file order:        # position(K) = bytes before K
-       if position(K) >= target:              # target is between P and K
-           cut = whichever of P and K is closer to target
-           add time(cut) to the cut list
-           target = position(cut) + 200 MB
-       P = K                                  # K is the previous one for the next step
-   ```
-
-   The commands that ran it: `ffprobe` for step 1, `awk` for steps 2–4.
-
-   The rounding moved two cuts: the first keyframe chosen is at 63.4967667 s,
-   printed as 63.496767, a little after it, so ffmpeg cut at the next
-   keyframe, 68.435 s, and the second cut likewise moved from 126.960 s to
-   130.330 s. So `Earth_000.mp4` is 223 MB (68 s) and `Earth_001.mp4` 208 MB
-   (62 s); from `Earth_002.mp4` on, the files start on the chosen keyframes.
-
-   <details>
-   <summary>Commands</summary>
-
-   ```sh
-   ffprobe -v error -select_streams v:0 -show_entries packet=pts_time,size,flags \
-     -of csv=p=0 Earth_10_minutes.mp4 > frames.csv   # one "time,bytes,flags" line per frame; K = keyframe
-   awk -F, -v target=200000000 '
-     $3 ~ /K/ { time[++n] = $1; bytes[n] = total }   # each keyframe: its time, and the bytes before it
-     { total += $2 }
-     END {
-       next_cut = target
-       for (i = 2; i <= n; i++) {
-         if (bytes[i] < next_cut) continue
-         # this keyframe or the previous one, whichever is closer to next_cut
-         k = (bytes[i] - next_cut < next_cut - bytes[i-1] || bytes[i-1] <= last) ? i : i - 1
-         cuts = cuts sep time[k]; sep = ","
-         last = bytes[k]; next_cut = last + target
-       }
-       print cuts
-     }' frames.csv
-   ```
-
-   </details>
+</details>
 
 To join them back into one video, also without re-encoding:
 
@@ -266,23 +253,32 @@ ffmpeg -f concat -i list.txt -c copy Earth_rebuilt.mp4
 - `Earth_rebuilt.mp4`: the output file.
 
 The joined video shows exactly the same pictures as the source: the same
-36,847 frames, the same duration, and decoding both gives identical frames.
-The files still differ by 2 bytes a frame. In AV1, each frame's data is made
-of small blocks (OBUs), and the source starts every frame with a 2-byte one,
-the *temporal delimiter*, that only marks where a new frame begins. In an MP4
-file the index already marks that, so the MP4 rules say to leave the block
-out, and ffmpeg does when it writes the pieces. Removing the same blocks from
-the source (`ffmpeg ... -c copy -bsf:v filter_units=remove_types=2`) gives
-exactly the data of the joined video.
+36,847 frames, the same duration, and decoding the joined video and the source
+gives identical frames.
+
+The two MP4 files are still not byte-identical: each frame in the source is 2
+bytes bigger (for example, the first frame is 29,181 bytes in the source and
+29,179 in the joined video).
+Those 2 bytes are a marker, the AV1 *temporal delimiter*, that says "a new
+frame starts here". An MP4 file already knows where each frame starts, so the
+marker is redundant and the rules for putting AV1 in MP4 say to leave it out.
+The YouTube file keeps it, while ffmpeg drops it when it writes the pieces.
+Removing the marker from the source too
+(`ffmpeg ... -c copy -bsf:v filter_units=remove_types=2`) gives exactly the
+same frame data as the joined video.
 
 ### Video Chunks
 
 > A video represented as temporal chunks.
 
-One video, which the user stores and reads back as temporal chunks:
-consecutive pieces of the video, each covering a span of time, as MPEG-DASH
-produces them. Unlike [Video Sequences](#video-sequences), a chunk is not a
-standalone video: it is decoded together with the rest of the video.
+A single video sent to mosaicod as temporal chunks: consecutive pieces of the
+video, each covering a span of time, like the segments MPEG-DASH produces.
+Unlike the files of [Video Sequences](#video-sequences), a chunk is not a
+standalone video: it can only be decoded together with the rest of the video.
+
+The folders below hold whole video files: the client cuts them into chunks
+when it sends them. **For now, video-parquet cuts each file into fixed-size
+byte chunks (`--chunk-size`), not into spans of time.**
 
 #### Big Buck Bunny
 
@@ -304,9 +300,9 @@ Lossless sources of Big Buck Bunny:
 
 #### YouTube
 
-AV1 videos downloaded from YouTube with `yt-dlp`, video stream only (no audio),
-in `datasets/VideoChunks/YouTube/AV1-<resolution>/`. The `yt-dlp` format
-is the YouTube stream that was downloaded:
+AV1 videos downloaded from YouTube with `yt-dlp`, video stream only (no
+audio), in `datasets/VideoChunks/YouTube/AV1-<resolution>/`. The `yt-dlp`
+format is the YouTube stream that was downloaded:
 
 | File | Source | `yt-dlp` format | Resolution | Frame rate | Pixel format | Duration | Size |
 |---|---|---|---|---|---|---|---|
@@ -315,8 +311,7 @@ is the YouTube stream that was downloaded:
 | `AV1-8K/Japan_in_8K.mp4` | [Japan in 8K](https://www.youtube.com/watch?v=m1jY2VLCRmY) | 571 | 7680x4320 | 23.976 fps | `yuv420p`, BT.709 | 141.10 s | 447 MB |
 
 The two Japan files are the same YouTube video, downloaded at two
-resolutions. The Earth video is also split into ~200 MB files in
-[Video Sequences](#video-sequences).
+resolutions.
 
 #### SEPE 8K
 
@@ -337,8 +332,9 @@ Every sequence is encoded in AV1, H.264 and HEVC at six resolutions:
 | `4K Videos (4096x2160)/{AV1,H264,HEVC}/` | 4096x2160 | `NNN_<codec>_4K.mp4` | ~5.1 GiB |
 | `8K (8192x4320)/{AV1,H264,HEVC}/` | 8192x4320 | `NNN_<codec>_8K.mp4` | ~18 GiB |
 
-`<codec>` is `av1`, `h264` or `hevc`. HEVC rounds the odd 720p and 2K widths
-up to an even number.
+`<codec>` is `av1`, `h264` or `hevc`. HEVC only supports even widths, so its
+720p and 2K files are 1 pixel wider (1366 and 2732) than the AV1 and H.264
+ones (1365 and 2731).
 
 #### Ultra Video Group RiverBank (raw 4K)
 
@@ -347,31 +343,32 @@ uncompressed 4K sequence *RiverBank* from the
 [Ultra Video Group dataset](https://ultravideo.fi/dataset.html): 3840x2160,
 50 fps, 8-bit `yuv420p`, 600 frames (12 s). It is downloaded as
 [`RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z`](https://ultravideo.fi/video/RiverBank_3840x2160_50fps_420_8bit_YUV_RAW.7z)
-(3.8 GB) and extracted. A `.yuv` file
-is only the pixels, one frame after the other, with no header. So a tool has
-to be told the frame size, the pixel format and the frame rate. The right
-values are on the sequence's page on the Ultra Video Group site, and two can
-be checked on the file itself:
+(3.8 GB) and extracted. A `.yuv` file is only raw pixels, one frame after
+the other, with no header: it records neither the frame size, nor the pixel
+format, nor the frame rate. So a tool has to be given all three to play it.
+The right values are on the sequence's page on the Ultra Video Group site.
+The frame size and the pixel format can also be checked on the file itself, but
+the frame rate cannot:
 
-- **Frame size and pixel format**: decode one frame with the chosen values. If
-  they are wrong, the picture is garbage (wrong colors, slanted or repeated
-  stripes). Here 3840x2160 `yuv420p` (8-bit) gives a correct picture, while
-  `yuv420p10le` (10-bit) does not.
-- **Frame count**: the file size divided by the size of one frame. A 3840x2160
-  `yuv420p` frame is 3840 × 2160 × 1.5 = 12,441,600 bytes, and the file is
-  7,464,960,000 bytes, so it holds exactly 600 frames.
+- **Decode one frame** with the chosen values. If they are wrong, the picture
+  is garbage (wrong colors, slanted or repeated stripes). Here 3840x2160
+  `yuv420p` (8-bit) gives a correct picture, while, for example, `yuv420p10le`
+  (10-bit) does not.
+- **Count the frames**: the file size divided by the size of one frame must be
+  a whole number. A 3840x2160 `yuv420p` frame is 3840 × 2160 × 1.5 =
+  12,441,600 bytes, and the file is 7,464,960,000 bytes, so it holds exactly
+  600 frames.
 
   The 1.5 is the bytes per pixel of `yuv420p`. It stores a picture as three
-  planes, each value taking 1 byte (8-bit):
+  planes, each pixel value taking 1 byte (8-bit):
   - **Y** (brightness): one value per pixel, so 3840 × 2160 values.
   - **U** and **V** (color): the eye notices color detail less than brightness
     detail, so color is stored at half the width and half the height (that is
     what `420` means). Each is 1920 × 1080, a quarter of the pixels.
 
-  Per pixel that is 1 + ¼ + ¼ = 1.5 bytes. A 10-bit format (`yuv420p10le`)
-  uses 2 bytes per value, so 3 bytes per pixel.
+  Per pixel that is 1 + ¼ + ¼ = 1.5 bytes.
 
-The frame rate cannot be read from the file; RiverBank's page gives 50 fps:
+The frame rate, 50 fps, comes from RiverBank's page:
 
 ```sh
 ffplay -f rawvideo -video_size 3840x2160 -pixel_format yuv420p -framerate 50 \
