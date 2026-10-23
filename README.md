@@ -18,7 +18,7 @@ up to 8K.
 
 | POC | Description |
 |---|---|
-| [video-to-parquet](video-to-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-to-parquet/results/RESULTS.md](video-to-parquet/results/RESULTS.md). |
+| [video-parquet](video-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-parquet/results/RESULTS.md](video-parquet/results/RESULTS.md). |
 | [image-sequence](image-sequence/README.md) | Uploads timestamped 8K PNG images with mosaicod's upload flow; the server encodes them into an 8-bit AV1 `.mkv` video with FFmpeg (SVT-AV1), one frame per image at its capture time (to the millisecond): at a constant frame rate when the capture times allow it, otherwise a variable one. A quality tool compares the video with the images (PSNR, PSNR-HVS, MS-SSIM, CIEDE2000, SSIMULACRA2, butteraugli), as losses over visibility thresholds. Results: one summary per encoding, e.g. [preset 9, CRF 30](image-sequence/results/regular/batch_060/preset_9_crf_30/summary.md), SVT-AV1 presets 5, 6 and 9 at CRF 18–35 [compared](image-sequence/results/regular/batch_060/presets-crfs/README.md), and the [capture-time datasets](image-sequence/datasets/README.md) (camera drops, jitter, rate changes, ...) [compared](image-sequence/results/dataset-comparisons/README.md) at preset 5. |
 
 ## Datasets
@@ -40,14 +40,14 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 
 | Name | Folder | Source | Download | Used by |
 |---|---|---|---|---|
-| `bbb` | `VideoChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB | video-to-parquet |
-| `youtube` | `VideoChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB | video-to-parquet |
+| `bbb` | `VideoChunks/BigBuckBunny/` | test-videos.co.uk | ~350 MB | video-parquet |
+| `youtube` | `VideoChunks/YouTube/` | YouTube, with `yt-dlp` | ~2.8 GB | video-parquet |
 | `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) | – |
-| `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB | video-to-parquet |
+| `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB | video-parquet |
 | `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) | – (raw `.yuv`, no container) |
 | `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB | image-sequence (`001/`) |
 
-video-to-parquet uploads every video it finds under `VideoChunks/`, so it
+video-parquet uploads every video it finds under `VideoChunks/`, so it
 uses whichever of `bbb`, `youtube` and `sepe` are built. image-sequence
 uses the frames of `ImageSequence/001/`: its end-to-end test needs only the
 first 60, which it downloads by itself; the other batches of its datasets,
