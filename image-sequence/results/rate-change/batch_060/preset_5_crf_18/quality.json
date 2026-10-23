@@ -1,0 +1,23 @@
+{
+  "conversion_reused": 0,
+  "decode_seconds": 4.660940917,
+  "decoder": "libdav1d",
+  "frames": 60,
+  "jobs": 4,
+  "measure_seconds": 720.375619416,
+  "stage_seconds": {
+    "CIEDE2000": 102.95976891299999,
+    "MS-SSIM": 206.89963575000002,
+    "PNG decoding, YUV 4:2:0": 40.875844084,
+    "PSNR": 6.579756004999999,
+    "PSNR-HVS": 58.491644238,
+    "SSIMULACRA2": 447.86547899899995,
+    "SSIMULACRA2 (conversion)": 549.601052042,
+    "butteraugli": 213.87249229099996,
+    "butteraugli (conversion)": 251.818982047,
+    "linear RGB": 106.77856270899998,
+    "linear RGB (conversion)": 61.53772316800001,
+    "waiting for butteraugli": 325.1000721239999,
+    "waiting for butteraugli (conversion)": 228.03099700200016
+  }
+}

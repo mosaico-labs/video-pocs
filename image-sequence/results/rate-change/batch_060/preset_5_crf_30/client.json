@@ -1,0 +1,10 @@
+{
+  "finalize_seconds": 0.0002515,
+  "images": 60,
+  "png_bytes": 2016845983,
+  "read_seconds": 0.469701752,
+  "seconds": 18.177603209,
+  "send_seconds": 10.028560584,
+  "setup_seconds": 0.004076875,
+  "wait_seconds": 8.144714083
+}

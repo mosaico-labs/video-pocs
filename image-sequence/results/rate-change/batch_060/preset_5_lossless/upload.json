@@ -1,0 +1,444 @@
+{
+  "locator": "rate-change_batch_060/camera",
+  "pixel_format": "yuv420p",
+  "preset": 5,
+  "crf": null,
+  "images": 60,
+  "png_bytes": 2016845983,
+  "width": 8192,
+  "height": 4320,
+  "first_timestamp_ns": 1767225599998127128,
+  "last_timestamp_ns": 1767225602937467679,
+  "timing": {
+    "mode": "variable"
+  },
+  "video_path": "/Users/luni-4/video-pocs/image-sequence/output/rate-change/batch_060/preset_5_lossless/camera.mkv",
+  "video_bytes": 574586273,
+  "seconds": 51.576428917,
+  "receive_seconds": 16.777558833,
+  "decode_seconds": 13.77083779,
+  "encode_seconds": 51.081897084,
+  "encode_wait_seconds": 6.942880163,
+  "frames": [
+    {
+      "received": 0.019515625,
+      "decode_start": 0.019531042,
+      "decoded": 0.425626583,
+      "encode_start": 0.425636708,
+      "encoded": 0.699001417
+    },
+    {
+      "received": 0.036436083,
+      "decode_start": 0.425637,
+      "decoded": 0.917682208,
+      "encode_start": 0.917690958,
+      "encoded": 0.924464958
+    },
+    {
+      "received": 0.051641083,
+      "decode_start": 0.425637,
+      "decoded": 0.917682208,
+      "encode_start": 0.924468417,
+      "encoded": 0.937918542
+    },
+    {
+      "received": 0.065449833,
+      "decode_start": 0.425637,
+      "decoded": 0.917682208,
+      "encode_start": 0.937919292,
+      "encoded": 0.950530167
+    },
+    {
+      "received": 0.076291208,
+      "decode_start": 0.425637,
+      "decoded": 0.917682208,
+      "encode_start": 0.950530917,
+      "encoded": 0.96572075
+    },
+    {
+      "received": 0.087465917,
+      "decode_start": 0.924490792,
+      "decoded": 1.425137667,
+      "encode_start": 1.425172458,
+      "encoded": 1.4307025
+    },
+    {
+      "received": 0.445730625,
+      "decode_start": 0.924490792,
+      "decoded": 1.425137667,
+      "encode_start": 1.430705792,
+      "encoded": 1.442290958
+    },
+    {
+      "received": 0.461168833,
+      "decode_start": 0.924490792,
+      "decoded": 1.425137667,
+      "encode_start": 1.442291792,
+      "encoded": 1.454029375
+    },
+    {
+      "received": 0.476854667,
+      "decode_start": 0.924490792,
+      "decoded": 1.425137667,
+      "encode_start": 1.4540302920000001,
+      "encoded": 1.460683833
+    },
+    {
+      "received": 0.493615125,
+      "decode_start": 1.43072675,
+      "decoded": 1.9280342080000001,
+      "encode_start": 1.928043208,
+      "encoded": 1.933421375
+    },
+    {
+      "received": 0.946712167,
+      "decode_start": 1.43072675,
+      "decoded": 1.9280342080000001,
+      "encode_start": 1.9334237079999999,
+      "encoded": 1.944755
+    },
+    {
+      "received": 0.969660083,
+      "decode_start": 1.43072675,
+      "decoded": 1.9280342080000001,
+      "encode_start": 1.944755708,
+      "encoded": 1.9517140419999999
+    },
+    {
+      "received": 0.988390417,
+      "decode_start": 1.43072675,
+      "decoded": 1.9280342080000001,
+      "encode_start": 1.9517145,
+      "encoded": 1.959697042
+    },
+    {
+      "received": 1.010949458,
+      "decode_start": 1.933443167,
+      "decoded": 2.433229458,
+      "encode_start": 2.433241792,
+      "encoded": 2.438658083
+    },
+    {
+      "received": 1.458481917,
+      "decode_start": 1.933443167,
+      "decoded": 2.433229458,
+      "encode_start": 2.438660125,
+      "encoded": 2.452798667
+    },
+    {
+      "received": 1.474597917,
+      "decode_start": 1.933443167,
+      "decoded": 2.433229458,
+      "encode_start": 2.452799958,
+      "encoded": 2.460602667
+    },
+    {
+      "received": 1.49618475,
+      "decode_start": 1.933443167,
+      "decoded": 2.433229458,
+      "encode_start": 2.460603125,
+      "encoded": 2.467487417
+    },
+    {
+      "received": 1.5117563330000001,
+      "decode_start": 2.4386787500000002,
+      "decoded": 2.9391540000000003,
+      "encode_start": 2.939160792,
+      "encoded": 2.944669958
+    },
+    {
+      "received": 1.9541959169999998,
+      "decode_start": 2.4386787500000002,
+      "decoded": 2.9391540000000003,
+      "encode_start": 2.944674125,
+      "encoded": 2.956054
+    },
+    {
+      "received": 1.9785656249999999,
+      "decode_start": 2.4386787500000002,
+      "decoded": 2.9391540000000003,
+      "encode_start": 2.956054292,
+      "encoded": 2.96859675
+    },
+    {
+      "received": 1.9987759170000001,
+      "decode_start": 2.4386787500000002,
+      "decoded": 2.9391540000000003,
+      "encode_start": 2.9685975,
+      "encoded": 2.980191042
+    },
+    {
+      "received": 2.019998417,
+      "decode_start": 2.944691083,
+      "decoded": 3.852058458,
+      "encode_start": 3.85206575,
+      "encoded": 3.8615414169999998
+    },
+    {
+      "received": 2.458263,
+      "decode_start": 2.944691083,
+      "decoded": 3.852058458,
+      "encode_start": 3.861544083,
+      "encoded": 3.873302625
+    },
+    {
+      "received": 2.483506625,
+      "decode_start": 2.944691083,
+      "decoded": 3.852058458,
+      "encode_start": 3.873303625,
+      "encoded": 3.879454917
+    },
+    {
+      "received": 2.499479875,
+      "decode_start": 2.944691083,
+      "decoded": 3.852058458,
+      "encode_start": 3.879455333,
+      "encoded": 3.887144708
+    },
+    {
+      "received": 2.5198762500000003,
+      "decode_start": 3.861573708,
+      "decoded": 4.7335896250000005,
+      "encode_start": 4.733604125,
+      "encoded": 4.739542333
+    },
+    {
+      "received": 2.965555625,
+      "decode_start": 3.861573708,
+      "decoded": 4.7335896250000005,
+      "encode_start": 4.739544875,
+      "encoded": 4.749173458
+    },
+    {
+      "received": 2.989048792,
+      "decode_start": 3.861573708,
+      "decoded": 4.7335896250000005,
+      "encode_start": 4.749173958,
+      "encoded": 4.7563970829999995
+    },
+    {
+      "received": 3.012796167,
+      "decode_start": 3.861573708,
+      "decoded": 4.7335896250000005,
+      "encode_start": 4.756397583,
+      "encoded": 4.765550167
+    },
+    {
+      "received": 3.026909208,
+      "decode_start": 4.7395629580000005,
+      "decoded": 5.811269708,
+      "encode_start": 5.811275125,
+      "encoded": 5.820419375
+    },
+    {
+      "received": 3.890705917,
+      "decode_start": 4.7395629580000005,
+      "decoded": 5.811269708,
+      "encode_start": 5.820421833,
+      "encoded": 5.831732208
+    },
+    {
+      "received": 3.905860708,
+      "decode_start": 4.7395629580000005,
+      "decoded": 5.811269708,
+      "encode_start": 5.8317327500000005,
+      "encoded": 5.839463292
+    },
+    {
+      "received": 3.924988875,
+      "decode_start": 4.7395629580000005,
+      "decoded": 5.811269708,
+      "encode_start": 5.839463708,
+      "encoded": 5.859526542
+    },
+    {
+      "received": 3.942148083,
+      "decode_start": 5.820440958,
+      "decoded": 6.8286071249999996,
+      "encode_start": 6.828635,
+      "encoded": 6.833584042
+    },
+    {
+      "received": 4.760838667,
+      "decode_start": 5.820440958,
+      "decoded": 6.8286071249999996,
+      "encode_start": 6.833586417,
+      "encoded": 6.8457595
+    },
+    {
+      "received": 4.775226833,
+      "decode_start": 5.820440958,
+      "decoded": 6.8286071249999996,
+      "encode_start": 6.845760167,
+      "encoded": 6.855347667
+    },
+    {
+      "received": 4.789469042,
+      "decode_start": 5.820440958,
+      "decoded": 6.8286071249999996,
+      "encode_start": 6.855348083,
+      "encoded": 6.863520958
+    },
+    {
+      "received": 4.8035425830000005,
+      "decode_start": 6.833604333,
+      "decoded": 7.982415875,
+      "encode_start": 7.982423583,
+      "encoded": 7.990946208
+    },
+    {
+      "received": 5.838104167,
+      "decode_start": 6.833604333,
+      "decoded": 7.982415875,
+      "encode_start": 7.990949292,
+      "encoded": 8.00174275
+    },
+    {
+      "received": 5.854520208,
+      "decode_start": 6.833604333,
+      "decoded": 7.982415875,
+      "encode_start": 8.00174325,
+      "encoded": 8.020697167
+    },
+    {
+      "received": 5.868606917,
+      "decode_start": 6.833604333,
+      "decoded": 7.982415875,
+      "encode_start": 8.020697625,
+      "encoded": 9.302768667
+    },
+    {
+      "received": 5.883071667,
+      "decode_start": 7.990970667,
+      "decoded": 8.984327,
+      "encode_start": 9.302771917,
+      "encoded": 9.672309292
+    },
+    {
+      "received": 6.934729542,
+      "decode_start": 7.990970667,
+      "decoded": 8.984327,
+      "encode_start": 9.672312583,
+      "encoded": 11.05509575
+    },
+    {
+      "received": 6.95195675,
+      "decode_start": 7.990970667,
+      "decoded": 8.984327,
+      "encode_start": 11.055099583,
+      "encoded": 11.463640458
+    },
+    {
+      "received": 6.965471958,
+      "decode_start": 7.990970667,
+      "decoded": 8.984327,
+      "encode_start": 11.463643958,
+      "encoded": 13.478780042
+    },
+    {
+      "received": 6.979244375,
+      "decode_start": 9.672328417,
+      "decoded": 10.751727583,
+      "encode_start": 13.478784208,
+      "encoded": 13.675078167
+    },
+    {
+      "received": 8.010340833,
+      "decode_start": 9.672328417,
+      "decoded": 10.751727583,
+      "encode_start": 13.67508175,
+      "encoded": 14.292959
+    },
+    {
+      "received": 8.031299375,
+      "decode_start": 9.672328417,
+      "decoded": 10.751727583,
+      "encode_start": 14.292959917,
+      "encoded": 14.728724333
+    },
+    {
+      "received": 8.045590917,
+      "decode_start": 9.672328417,
+      "decoded": 10.751727583,
+      "encode_start": 14.728725083,
+      "encoded": 16.417892083
+    },
+    {
+      "received": 8.059979333,
+      "decode_start": 13.68009125,
+      "decoded": 14.9999975,
+      "encode_start": 16.417896292000002,
+      "encoded": 16.745735667
+    },
+    {
+      "received": 9.688974417,
+      "decode_start": 13.68009125,
+      "decoded": 14.9999975,
+      "encode_start": 16.745739125,
+      "encoded": 17.270595458
+    },
+    {
+      "received": 9.705001958,
+      "decode_start": 13.68009125,
+      "decoded": 14.9999975,
+      "encode_start": 17.270595958,
+      "encoded": 17.909483375
+    },
+    {
+      "received": 9.720977874999999,
+      "decode_start": 13.68009125,
+      "decoded": 14.9999975,
+      "encode_start": 17.909484375,
+      "encoded": 19.517402792
+    },
+    {
+      "received": 9.735376208,
+      "decode_start": 16.745758458,
+      "decoded": 17.97838275,
+      "encode_start": 19.517406625,
+      "encoded": 19.876870125
+    },
+    {
+      "received": 13.7064205,
+      "decode_start": 16.745758458,
+      "decoded": 17.97838275,
+      "encode_start": 19.8768735,
+      "encoded": 20.323335083
+    },
+    {
+      "received": 13.719118917,
+      "decode_start": 16.745758458,
+      "decoded": 17.97838275,
+      "encode_start": 20.323335792,
+      "encoded": 20.775341417
+    },
+    {
+      "received": 13.733081458000001,
+      "decode_start": 16.745758458,
+      "decoded": 17.97838275,
+      "encode_start": 20.775343083,
+      "encoded": 23.226207167
+    },
+    {
+      "received": 13.746879833,
+      "decode_start": 19.881423167,
+      "decoded": 21.122550542,
+      "encode_start": 23.226211333,
+      "encoded": 23.403871083
+    },
+    {
+      "received": 16.764865875,
+      "decode_start": 19.881423167,
+      "decoded": 21.122550542,
+      "encode_start": 23.403872417,
+      "encoded": 23.580228833
+    },
+    {
+      "received": 16.777550458,
+      "decode_start": 19.881423167,
+      "decoded": 21.122550542,
+      "encode_start": 23.580230375,
+      "encoded": 23.940575042
+    }
+  ]
+}

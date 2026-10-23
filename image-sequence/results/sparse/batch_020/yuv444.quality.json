@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "image": "datasets/ImageSequence/001/000_8K.png",
+      "png_bytes": 33787725,
+      "bit_depth": 8,
+      "ssimulacra2": 89.30275718270175,
+      "butteraugli_max": 1.3669055700302124,
+      "butteraugli_3norm": 0.483714357632863
+    },
+    {
+      "image": "datasets/ImageSequence/001/010_8K.png",
+      "png_bytes": 33826847,
+      "bit_depth": 8,
+      "ssimulacra2": 89.27582571630256,
+      "butteraugli_max": 1.4119791984558105,
+      "butteraugli_3norm": 0.48616362890906323
+    },
+    {
+      "image": "datasets/ImageSequence/001/030_8K.png",
+      "png_bytes": 34015705,
+      "bit_depth": 8,
+      "ssimulacra2": 89.36920911009956,
+      "butteraugli_max": 1.4149888753890991,
+      "butteraugli_3norm": 0.48646817998198255
+    },
+    {
+      "image": "datasets/ImageSequence/001/040_8K.png",
+      "png_bytes": 33924680,
+      "bit_depth": 8,
+      "ssimulacra2": 89.3522251688768,
+      "butteraugli_max": 1.4791250228881836,
+      "butteraugli_3norm": 0.4813227158152141
+    },
+    {
+      "image": "datasets/ImageSequence/001/060_8K.png",
+      "png_bytes": 33106734,
+      "bit_depth": 8,
+      "ssimulacra2": 89.39358816789571,
+      "butteraugli_max": 1.3990864753723145,
+      "butteraugli_3norm": 0.4787598071551793
+    },
+    {
+      "image": "datasets/ImageSequence/001/070_8K.png",
+      "png_bytes": 33433739,
+      "bit_depth": 8,
+      "ssimulacra2": 89.3574371120375,
+      "butteraugli_max": 1.3532171249389648,
+      "butteraugli_3norm": 0.4794899327081808
+    },
+    {
+      "image": "datasets/ImageSequence/001/090_8K.png",
+      "png_bytes": 33040195,
+      "bit_depth": 8,
+      "ssimulacra2": 89.34101066664998,
+      "butteraugli_max": 1.4300427436828613,
+      "butteraugli_3norm": 0.48491601311481985
+    },
+    {
+      "image": "datasets/ImageSequence/001/100_8K.png",
+      "png_bytes": 33248399,
+      "bit_depth": 8,
+      "ssimulacra2": 89.30146258390184,
+      "butteraugli_max": 1.4262217283248901,
+      "butteraugli_3norm": 0.48144870764560127
+    },
+    {
+      "image": "datasets/ImageSequence/001/120_8K.png",
+      "png_bytes": 33090609,
+      "bit_depth": 8,
+      "ssimulacra2": 89.34925764276133,
+      "butteraugli_max": 1.3212147951126099,
+      "butteraugli_3norm": 0.482532627732619
+    },
+    {
+      "image": "datasets/ImageSequence/001/130_8K.png",
+      "png_bytes": 33440475,
+      "bit_depth": 8,
+      "ssimulacra2": 89.36571325104039,
+      "butteraugli_max": 1.3861008882522583,
+      "butteraugli_3norm": 0.4805339432933331
+    },
+    {
+      "image": "datasets/ImageSequence/001/150_8K.png",
+      "png_bytes": 33491096,
+      "bit_depth": 8,
+      "ssimulacra2": 89.37635814070231,
+      "butteraugli_max": 1.3401578664779663,
+      "butteraugli_3norm": 0.4810223815751378
+    },
+    {
+      "image": "datasets/ImageSequence/001/160_8K.png",
+      "png_bytes": 33363574,
+      "bit_depth": 8,
+      "ssimulacra2": 89.29808836561786,
+      "butteraugli_max": 1.319545865058899,
+      "butteraugli_3norm": 0.4835343173994007
+    },
+    {
+      "image": "datasets/ImageSequence/001/180_8K.png",
+      "png_bytes": 33851712,
+      "bit_depth": 8,
+      "ssimulacra2": 89.32419928066679,
+      "butteraugli_max": 1.4038504362106323,
+      "butteraugli_3norm": 0.488346686108728
+    },
+    {
+      "image": "datasets/ImageSequence/001/190_8K.png",
+      "png_bytes": 33784611,
+      "bit_depth": 8,
+      "ssimulacra2": 89.42092509059707,
+      "butteraugli_max": 1.3810690641403198,
+      "butteraugli_3norm": 0.48314235112900983
+    },
+    {
+      "image": "datasets/ImageSequence/001/210_8K.png",
+      "png_bytes": 32816450,
+      "bit_depth": 8,
+      "ssimulacra2": 89.19932444395819,
+      "butteraugli_max": 1.4166438579559326,
+      "butteraugli_3norm": 0.49075228106278646
+    },
+    {
+      "image": "datasets/ImageSequence/001/220_8K.png",
+      "png_bytes": 32712236,
+      "bit_depth": 8,
+      "ssimulacra2": 89.1308324075559,
+      "butteraugli_max": 1.3987315893173218,
+      "butteraugli_3norm": 0.4895419850000697
+    },
+    {
+      "image": "datasets/ImageSequence/001/240_8K.png",
+      "png_bytes": 32691301,
+      "bit_depth": 8,
+      "ssimulacra2": 89.08296373493795,
+      "butteraugli_max": 1.3595545291900635,
+      "butteraugli_3norm": 0.4897203424973351
+    },
+    {
+      "image": "datasets/ImageSequence/001/250_8K.png",
+      "png_bytes": 32652319,
+      "bit_depth": 8,
+      "ssimulacra2": 89.12834707530342,
+      "butteraugli_max": 1.4698258638381958,
+      "butteraugli_3norm": 0.48965174644305615
+    },
+    {
+      "image": "datasets/ImageSequence/001/270_8K.png",
+      "png_bytes": 32658303,
+      "bit_depth": 8,
+      "ssimulacra2": 89.07150393238325,
+      "butteraugli_max": 1.4977351427078247,
+      "butteraugli_3norm": 0.49157922938700854
+    },
+    {
+      "image": "datasets/ImageSequence/001/280_8K.png",
+      "png_bytes": 32639239,
+      "bit_depth": 8,
+      "ssimulacra2": 89.12592979246706,
+      "butteraugli_max": 1.424589991569519,
+      "butteraugli_3norm": 0.49045319941101423
+    }
+  ]
+}
