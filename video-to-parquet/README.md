@@ -79,7 +79,7 @@ and reports:
 
 | Metric | What it covers |
 |---|---|
-| Video / `.arrow` / Parquet size | Size of the original video, of an Arrow IPC file (`.arrow`) holding the same batches, and of all its Parquet files, with the differences between them. `.arrow` is how video-to-parquet stored videos before following mosaicod; the client computes its size from the batches it sends, so every report keeps the comparison. Charted for every video in `results/per-video/file-size-comparison/` |
+| Video / `.arrow` / Parquet size | Size of the original video, of an Arrow IPC file (`.arrow`) holding the same batches (see [`.arrow` vs Parquet](#arrow-vs-parquet)), and of all its Parquet files, with the differences between them. Charted for every video in `results/per-video/file-size-comparison/` |
 | Parquet files | One per record batch; the client checks that it matches the batches it sent |
 | Received | Whether the server got every chunk and every byte with a matching CRC32 |
 | Upload | From the start of `DoPut` until the server acknowledges it. Charted in `results/per-video/server-time/` with the server times |
@@ -111,10 +111,10 @@ limit) minus 64 KiB of headroom. Change it on both sides with
 ## End-to-end test
 
 A quick check that client and server work together, on the 4 videos in
-`datasets/VideoChunks/BigBuckBunny/1080p` (119.39 MiB). Use it after changing the code; use
-[Running on every dataset](#running-on-every-dataset) to measure everything.
-It is `run-all.sh` on one folder, writing to a folder outside the repository
-so the committed results stay untouched:
+`datasets/VideoChunks/BigBuckBunny/1080p` (119.39 MiB), to run after changing
+the code ([Running on every dataset](#running-on-every-dataset) measures
+everything). It is `run-all.sh` on one folder, writing outside the repository
+so that the committed results stay untouched:
 
 ```sh
 DATASETS=datasets/VideoChunks/BigBuckBunny/1080p OUT_DIR=/tmp/video-to-parquet-1080p video-to-parquet/scripts/run-all.sh
@@ -181,8 +181,7 @@ saves the charts as PNGs without metadata, and the per-video ones with 256
 colors (under half the size of matplotlib's own PNGs, with no visible
 difference), so a chart file only changes when its numbers do: running
 `analyze.py` again on the same reports rewrites the same files, except the
-date in `RESULTS.md`. The file-size charts in particular stay the same
-across runs with the same settings.
+date in `RESULTS.md`.
 
 **How step 1 works.** `run-all.sh` builds the binaries, starts the server once
 and runs the client on each folder that directly holds videos, for example
@@ -306,6 +305,6 @@ has the numbers for every dataset.
 
 ## Notes
 
-Client and server both run on the same machine, so upload times measure
+Client and server ran on the same machine, so the upload times measure
 loopback, not a real network. To test a real link, run the server on another
-host and point `--server` at it.
+host and point the client's `--server` at it.
