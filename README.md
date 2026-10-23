@@ -36,7 +36,7 @@ to the ways a user can store video data in mosaicod:
 - [Building the datasets](#building-the-datasets): one script downloads every
   dataset from its original source (~65 GB), or only the ones you need, and
   can check each file against its SHA-256.
-- [Inspecting a dataset video](#inspecting-a-video): an `ffprobe` command to read a
+- [Inspecting a dataset video](#inspecting-a-dataset-video): an `ffprobe` command to read a
   video's codec, resolution, frame rate and pixel format.
 - [Dataset structure](#dataset-structure): the three ways of storing video
   data in mosaicod, and the dataset built for each of them:
