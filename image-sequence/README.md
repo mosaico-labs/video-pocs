@@ -59,7 +59,9 @@ for it most of the time (see [`encoder.rs`](crates/server/src/encoder.rs)).
 | Codec | AV1, SVT-AV1 through FFmpeg, constant quality (CRF) |
 | Container | Matroska (`.mkv`), FFmpeg's muxer |
 | Pixels | 8-bit YUV 4:2:0 (`yuv420p`), BT.709 matrix, limited range; tagged with BT.709 primaries and the sRGB transfer curve of the PNGs |
-| Timestamps | each frame's capture time minus the first one, in **milliseconds** |
+| Frames | one per PNG, in upload order: none dropped or repeated |
+| Frame rate | constant when the capture times allow it without losing timing, otherwise variable (see [Constant or variable frame rate](#constant-or-variable-frame-rate)) |
+| Timestamps | each frame's capture time minus the first one, in **milliseconds** (at a constant frame rate, the frame's index times the frame period, within 0.5 ms of it) |
 | First capture time | the `CAPTURE_START_NS` tag, in nanoseconds since the Unix epoch |
 
 **Presets at 8K.** `libsvtav1` does not support presets below 5 at 8K: it
@@ -70,8 +72,9 @@ work in progress, not meant for benchmarking.
 
 The RGB to YUV conversion is in [`images.rs`](crates/common/src/images.rs):
 each U and V sample is the average of the 2x2 pixels it covers. Only 8-bit
-PNGs are accepted. The encoder and the quality tool's decoder also support 10-bit YUV 4:2:0
-(`yuv420p10le`), but the accepted videos in input are always 8-bit for now.
+PNGs are accepted. The encoder and the quality tool's decoder also support
+10-bit YUV 4:2:0 (`yuv420p10le`), but the server always encodes 8-bit for
+now.
 
 **Alpha.** The dataset PNGs are RGBA, but the video has no alpha channel
 (SVT-AV1 encodes only YUV), so the server drops it from every image without
@@ -83,9 +86,8 @@ same way, so the alpha is gone on both sides of the comparison.
 
 ### Capture times
 
-The video keeps each image's capture time, but only to
-the millisecond: read back, a capture time can be up to 0.5 ms off the one
-in the CSV.
+The video keeps each image's capture time, but only to the millisecond:
+read back, a capture time can be up to 0.5 ms off the one in the CSV.
 
 The CSV gives each capture time in nanoseconds since the Unix epoch, but a
 video does not store absolute times: each frame has a timestamp (its pts)
@@ -95,7 +97,8 @@ time in two (see [`encoder.rs`](crates/server/src/encoder.rs)):
 - the first image's capture time, written once on the file as the
   `CAPTURE_START_NS` tag, in nanoseconds
 - each frame's timestamp: its capture time minus the first one, also in
-  nanoseconds
+  nanoseconds (at a variable frame rate; at a constant one, the frame's
+  index in frame periods, see below)
 
 For example, the first frames of `regular/batch_060`. The first one was
 captured at 1767225600000000000 ns (2026-01-01 00:00:00 UTC), so the file
@@ -139,7 +142,86 @@ than 0.5 ms.
 
 **Timestamp order.** The server rejects an image whose capture time is not
 after the previous one: a video shows its frames in time order, one at a
-time.
+time. It also rejects an image with no capture time (a null `timestamp_ns`):
+it would have no place in the video. A rejected sequence leaves no video,
+not even one of the images received before the bad one: the server waits
+for the encoder to stop and removes the file. The datasets
+[`duplicate-timestamps/`](datasets/duplicate-timestamps/README.md) and
+[`out-of-order/`](datasets/out-of-order/README.md) are made for this check:
+the server's unit tests (`cargo test -p server`) run it on their capture
+times and check that it rejects exactly their faulty images, and accepts
+the batch just before the first one and every batch of the other scenarios.
+
+**Frame durations.** Every frame lasts until the next one's capture time.
+The last frame, which no frame follows, lasts as long as the gap before it
+(the camera's latest spacing), or one nominal frame period if it is the
+only one; at a constant frame rate every frame lasts one period. A
+variable video stores no duration for the other frames: its track has no
+`DefaultDuration`, and Matroska then defines a frame's duration as the gap
+to the next frame's timestamp
+([RFC 9559](https://www.rfc-editor.org/rfc/rfc9559#name-blockduration-element),
+`BlockDuration`), so the file holds the capture times and nothing else
+(FFmpeg's muxer writes a `BlockDuration` only against a `DefaultDuration`).
+The last frame ends at the segment's `Duration`: `sparse/batch_003`
+(frames 0, 10 and 30) has frames at 0, 334 and 1001 ms and lasts 1.668 s,
+so frame 30 is shown for 667 ms, like the gap before it. `ffprobe` shows
+the packets of such a video with no duration (`N/A`), or with one it
+guessed from an average rate (see below).
+
+### Constant or variable frame rate
+
+Every PNG becomes one frame, and every frame decodes back to one image:
+the video never drops or repeats a frame to keep a frame rate. Its frame
+rate follows from the capture times
+([`common/src/timing.rs`](crates/common/src/timing.rs)):
+
+- **Constant** when it loses no timing: frame *k* at *k* frame periods,
+  with every capture time read back within 0.5 ms, as close as the
+  millisecond timestamps keep them anyway. The rate tried first is
+  30000/1001, then the one of the first and last capture times (as a
+  fraction with a denominator of at most 1001, like 25/1 or 24000/1001).
+  The stream declares it (Matroska's `DefaultDuration`), so players and
+  `ffprobe` see a constant rate. SVT-AV1 encodes before the rate is known,
+  so its rate control always gets the nominal `--frame-rate`.
+- **Variable** otherwise: each frame at its own capture time, as described
+  above. Neither the stream (no `DefaultDuration`) nor the AV1 bitstream
+  (no `timing_info` in its sequence header) declares a frame rate: the
+  nominal `--frame-rate` only drives SVT-AV1's rate control. Dropped
+  frames, jitter and rate changes are kept as they were captured, with no
+  frame added and no rate made up. The frame rate `ffprobe` shows is its
+  own estimate from the timestamps: `jitter`, whose gaps average 33.4 ms,
+  gets `avg_frame_rate=30000/1001`; `rate-change` and `sparse`, which no
+  single rate fits, get `0/0`. In the file, the missing `DefaultDuration`
+  is what tells a variable video from a constant one.
+
+On the scenarios' `batch_060`:
+
+| Scenario | Frame rate | Why |
+|---|---|---|
+| `regular` | constant 30000/1001 | evenly spaced |
+| `jitter` | variable | up to 4.8 ms off any even spacing |
+| `frame-drops` | variable | a 66.7 ms gap would need a repeated frame |
+| `rate-change` | variable | 33.4 ms then 66.7 ms apart: no single rate fits |
+| `sparse` (`batch_003`: frames 0, 10, 30) | variable | 333.7 ms then 667.3 ms apart; `batch_002`, with one gap, is constant 3000/1001 |
+
+The server decides, from the capture times it received; the client only
+sends the images and their times. The server encodes while the images
+arrive, before it knows the last capture time, so it always encodes at a
+variable frame rate. Once the last image is in, if the capture times fit
+a constant frame rate, it rewrites the timestamps to it without
+re-encoding ([`encoder::make_constant`](crates/server/src/encoder.rs)):
+every packet is copied in order, frame *k* at *k* frame periods, and the
+rate is declared. AV1 packets hold no timestamps of their own, so only the
+container changes. The rewrite fails, leaving the video variable, unless
+the video holds exactly one frame per image received. The choice is in
+the upload report (`timing` in `upload.json`).
+
+**Packet timestamps.** SVT-AV1 outputs one packet per frame, in the order
+the frames are shown, but when the frames are very unevenly spaced (as in
+`sparse/`) it can give a packet the timestamp of another frame, far ahead,
+which the Matroska muxer rejects as out of order. So the server stamps the
+k-th packet with the k-th frame's capture time itself, and fails if the
+encoder outputs more or fewer packets than frames.
 
 ## Building and running
 
@@ -207,7 +289,9 @@ Main options:
 | `client`, `quality` | `--timestamps` | `datasets/regular/batch_060/timestamps.csv` | The batch to upload, or to compare the video with |
 | `client` | `--sequence`, `--topic` | from the CSV, `camera` | Locator of the uploaded topic |
 | `server`, `client` | `--out-dir` | `output/` | Where the video and the server's report, or the client's times, are written |
+| `server`, `client` | `--addr`, `--url` | `127.0.0.1:6726`, `http://127.0.0.1:6726` | Where the server listens and the client connects (mosaicod's default port) |
 | `quality` | `--preset`, `--crf` | 9, 30 | Settings the video was encoded with, to find it in `output/` |
+| `quality` | `--video` | the server's video for those settings | The video to compare, instead |
 | `quality` | `--step` | 1 | Measure one frame every N |
 | `quality` | `--refresh-conversion` | off | Measure the YUV 4:2:0 conversion again instead of reusing `yuv420.quality.json` |
 | `quality` | `--yuv444-floor` | off | Measure no video, only what the conversion to YUV 4:4:4 alone loses (see [Lossless 4:4:4](#lossless-the-conversion-alone)), into `yuv444.quality.json` |
@@ -225,11 +309,14 @@ matplotlib on its first run. After the three steps of
 ```sh
 uv run scripts/report.py   # takes the same --preset and --crf as quality
 uv run scripts/report.py --compare-only   # only presets-crfs/, from results/
+uv run scripts/report.py --compare-datasets --preset 5   # only dataset-comparisons/
+uv run scripts/report.py --redraw --preset 5   # every chart in results/ again, from results/
 ```
 
 [`scripts/run.sh`](scripts/run.sh) runs everything instead: it builds the
 workspace, starts the server for the upload, then runs the client, `quality`
-and `scripts/report.py`; the logs go to `output/logs/preset_<P>_crf_<C>/`.
+and `scripts/report.py`; the logs go to
+`output/logs/<scenario>/<batch>/preset_<P>_crf_<C>/`.
 It takes a `timestamps.csv` as argument (default
 `datasets/regular/batch_060/timestamps.csv`), and other settings with
 `PRESET` and `CRF`:
@@ -248,9 +335,10 @@ The report collects one encoding into
 - `client.json`, `upload.json`, `quality.csv`, `quality.json`: copies of
   what the client, the server and `quality` wrote;
 - `video-quality/`: `loss-overview.svg`, every measure of loss at once
-  (mean, worst frame, and what the YUV 4:2:0 conversion alone lost) over the
-  bands of what the eye sees, and one folder per measure,
-  `<measure>/<measure>.svg`, with the loss of each frame (see
+  (the video's mean in blue, its worst frame, and what the YUV 4:2:0
+  conversion alone lost in orange, and the 4:4:4 one in dashed black if
+  measured) over the bands of what the eye sees, and one folder per
+  measure, `<measure>/<measure>.svg`, with the loss of each frame (see
   [The metrics](#the-metrics)). The shaded bands say how visible the loss
   is, darker = more visible, and the dashed lines mark where one band ends
   and the next starts; the key under each chart names every band with its
@@ -266,39 +354,91 @@ The report collects one encoding into
 
 **Comparing presets and CRFs.** Each run of the report also rebuilds the
 charts in `results/<scenario>/<batch>/presets-crfs/` from every
-`preset_<P>_crf_<C>/` folder of the batch, each with one point per encoding
-(its video size against the mean over its frames), one line per preset,
-one point per CRF, over what the YUV 4:2:0 conversion alone loses. Lower is
-better, and down and left is smaller and better. The lossless encodings
-(`preset_<P>_lossless/`) are diamonds in their preset's color: in the size
-charts, in a panel of their own past a break in the size axis (they are ~50x
-bigger), on the conversion's line; on a CRF axis, in a `lossless` column on
-the left, past a dotted line. A value too large for the scale of the others
-(the lossless video size) is a triangle at the top, with its value.
-`README.md` in that folder shows all the charts, with a table of every
-encoding of the batch linking to its summary.
+`preset_<P>_crf_<C>/` folder of the batch. Every chart is one measure
+against the CRF, always on the x axis, one line per preset and one point per
+CRF, on a scale fitted to the values instead of starting at 0 (spanning at
+least ±5% around them, so that smaller differences stay flat). Lower is
+better everywhere. The lossless encodings (`preset_<P>_lossless/`) have no
+CRF: they are on the right, in a panel and on a scale of their own, one
+diamond per preset with its value. Every chart carries its own title,
+description, CRF axis and keys, so that it can be cut out and used on its
+own (in a paper, say); the keys give the values that fall between the
+axis ticks (lossless sizes, conversion floors) in bold. Each preset has its
+own color, the same in every chart (blue, crimson, dark yellow), and its
+own marker and line style. `README.md` in that folder shows all the
+charts, with a table of every encoding of the batch linking to its
+summary.
 
-- `compare-presets-data.svg`: every setting in one figure, on a shared CRF axis:
-  video size, butteraugli max-norm and 3-norm, and the encoder's working
-  time, one line per preset; read down a column for one CRF.
+- `compare-presets-data.svg`: video size, butteraugli max-norm and 3-norm,
+  and the encoder's working time, one chart above the other.
+- `video-size.svg`: the video size.
 - `butteraugli-max.svg`: the max-norm, the worst spot of each frame, over
-  its visibility bands: whether the worst differences can be seen.
-- `butteraugli-3norm.svg`: the 3-norm, the whole frame. It has no
-  visibility scale, so it says nothing about whether a loss is visible, but
-  on the same images a lower one is less visible loss over the whole frame:
-  it ranks the settings of one batch, not encodings of different batches.
-- `encode-time.svg`: how long the encoder took for each encoding, against
-  its CRF, in two panels: its wall time (top), which also counts waiting for
-  decoded PNGs, and its working time (bottom), the AV1 encoding itself. At 8K PNG decoding
-  is the bottleneck, so the wall time follows the decoder, not the CRF.
-  Keep the machine awake during a sweep (`caffeinate -i scripts/run.sh` on
-  macOS): a sleep in the middle of an upload throttles it and skews its
-  times. To fill it, run
-the pipeline once per setting:
+  its visibility bands: whether the worst differences can be seen. A table
+  under the CRF axis gives each encoding's video size, and the lossless
+  panel the YUV 4:2:0 conversion's loss (orange) and the 4:4:4 one's
+  (dashed black), if measured.
+- `butteraugli-3norm.svg`: the 3-norm, the whole frame, with the same
+  table. It has no visibility scale, so it says nothing about whether a loss
+  is visible, but on the same images a lower one is less visible loss over
+  the whole frame: it ranks the settings of one batch, not encodings of
+  different batches.
+- `encoder-wall-time.svg` and `encoder-working-time.svg`, both in
+  `encode-time.svg`: how long the encoder took for each encoding. Its wall
+  time also counts waiting for decoded PNGs; its working time is the AV1
+  encoding itself. At 8K PNG decoding is the bottleneck, so the wall time
+  follows the decoder, not the CRF.
+
+To fill them, run the pipeline once per setting, for example the CRFs of
+`regular/batch_060`:
 
 ```sh
-for crf in 20 30 40; do PRESET=9 CRF=$crf scripts/run.sh; done
+for crf in 18 22 26 30 35; do PRESET=9 CRF=$crf scripts/run.sh; done
 ```
+
+**Timing runs.** Each time is from a single run, and the machine's state
+moves it: `jitter/batch_060` and `regular/batch_060` give byte-identical
+AV1 packets, yet their encoder working times differ by up to ~10% at the
+same CRF. Keep the machine awake (`caffeinate -i` on macOS: a sleep in the
+middle of an upload throttles it), close what uses the CPU (a browser
+showing the charts can take most of a core), and let it rest between runs
+(see the sweep below).
+
+**Comparing datasets.** `--compare-datasets --preset <P>` writes
+`results/dataset-comparisons/` from the encodings with that preset of every
+batch in `results/`, one line per batch, in the layout of `presets-crfs/`,
+each dataset in its own color: `video-size-per-frame.svg`, `bitrate.svg`
+(over the time the frames cover), `butteraugli-max.svg` and
+`butteraugli-3norm.svg` (with each dataset's 4:4:4 conversion on its row
+of the lossless panel), `encoder-working-time-per-frame.svg`,
+`encoder-working-total-time.svg`, all of them in
+`compare-datasets-data.svg`, and a `README.md` with what images each batch
+holds and a table of every encoding. The batches have different numbers of
+images (`sparse` has 20), hence the sizes and times per frame. Datasets
+with the same frames give nearly the same lines: the first is then drawn
+wide and pale underneath, so that the ones on it still show. Some batches
+hold other frames of the sequence than `regular/batch_060`
+(`rate-change/batch_060` takes every other frame after its first 30,
+`sparse` keeps 2 in 30): their frames differ more from one to the next, so
+part of their difference is the content, not the timing. To fill it, run
+every CRF and the lossless encoding of each batch, each after a 2-minute
+pause so that the run before (its encoding and its quality measurement)
+does not heat the machine and slow its encoding, then the comparison:
+
+```sh
+for b in regular/batch_060 frame-drops/batch_060 jitter/batch_060 rate-change/batch_060 sparse/batch_020; do
+    for crf in 18 22 26 30 35 lossless; do
+        sleep 120
+        if [ $crf = lossless ]; then PRESET=5 LOSSLESS=1 scripts/run.sh datasets/$b/timestamps.csv
+        else PRESET=5 CRF=$crf scripts/run.sh datasets/$b/timestamps.csv; fi
+    done
+done
+uv run scripts/report.py --compare-datasets --preset 5
+```
+
+`duplicate-timestamps/batch_060` and `out-of-order/batch_060` are not in it:
+their capture times are those of `regular/batch_060` (the duplicate and the
+backward time come later, at images 75 and 91), and their larger batches are
+rejected by the server.
 
 **Client and server times.** The client and the server are meant to run in
 different places, so each one times its own side and the two are charted
@@ -362,11 +502,16 @@ decoded with dav1d with nothing else running, file reading included
 
 The results so far:
 
-- [`regular/batch_060`, preset 9, CRF 30](results/regular/batch_060/preset_9_crf_30/summary.md)
-- `regular/batch_060`, lossless, the YUV 4:2:0 conversion alone:
+- [`regular/batch_060`, presets 5, 6 and 9 compared](results/regular/batch_060/presets-crfs/README.md),
+  at CRF 18, 22, 26, 30 and 35 and lossless, for example
+  [preset 9, CRF 30](results/regular/batch_060/preset_9_crf_30/summary.md)
+  and the lossless ones, the YUV 4:2:0 conversion alone:
   [preset 5](results/regular/batch_060/preset_5_lossless/summary.md),
   [preset 6](results/regular/batch_060/preset_6_lossless/summary.md),
   [preset 9](results/regular/batch_060/preset_9_lossless/summary.md)
+- [the datasets compared at preset 5](results/dataset-comparisons/README.md):
+  `regular`, `frame-drops`, `jitter`, `rate-change` and `sparse`, every CRF
+  and lossless
 
 ### The metrics
 
@@ -416,7 +561,8 @@ PSNR-HVS and MS-SSIM `inf`), and SSIMULACRA2 and butteraugli equal their
 `*_yuv420` values. Its size is what keeping every YUV 4:2:0 sample costs:
 566.5 MiB for the 60 frames of `regular/batch_060` at preset 9, against
 1931.4 MiB of PNG. It has no CRF, so in the `presets-crfs/` charts it gets a
-place of its own, as a diamond in its preset's color (see below).
+panel of its own, as a diamond in its preset's color (see
+[Results](#results)).
 
 The preset changes only the size and the encoding time of a lossless video,
 not its frames, so its quality is the same at every preset. `scripts/run.sh`
@@ -443,8 +589,8 @@ finds slightly better predictions, so slightly smaller differences to store:
 
 | Lossless | Video size | MiB per frame | Smaller than raw YUV 4:2:0 (50.6 MiB per frame) | Encoder working |
 |---|---|---|---|---|
-| preset 5 | 548.0 MiB | 9.13 | 5.5x | 44.3 s |
-| preset 6 | 554.0 MiB | 9.23 | 5.5x | 59.8 s |
+| preset 5 | 548.0 MiB | 9.13 | 5.5x | 43.6 s |
+| preset 6 | 554.0 MiB | 9.23 | 5.5x | 32.2 s |
 | preset 9 | 566.5 MiB | 9.44 | 5.4x | 28.1 s |
 
 Preset 5 saves only 3% on preset 9. Most of the bits of lossless 8K camera
@@ -454,9 +600,9 @@ them bit for bit however long the encoder searches. Searching more improves
 only the predictable part (edges, smooth areas, motion), which is already
 small. In the lossy encodings the presets are further apart, because there
 the preset also chooses the transforms and filters and changes what is
-lost. The encoding times are from back-to-back runs, which slow the later
-ones down: preset 6, slower here than preset 5, took 61.4 s of encoder wall
-time instead of 75.3 s when run again on its own.
+lost. The slower presets search longer: lossless preset 5 takes ~1.6x the
+encoder time of preset 9 for its 3% (single runs, see
+[Timing runs](#results)).
 
 **Lossless 4:4:4.** SVT-AV1 encodes only 4:2:0 (its `--color-format`
 accepts nothing else), so there is no lossless 4:4:4 video. Its only loss
@@ -464,16 +610,23 @@ would be the conversion to 8-bit YUV 4:4:4, which needs no encoding:
 `quality --yuv444-floor` measures it on each image, the same way as the
 4:2:0 conversion, into `output/<scenario>/<batch>/yuv444.quality.json`
 (~4 min for the 60 images), and `scripts/report.py` copies it to
-`results/<scenario>/<batch>/yuv444.quality.json` and draws it as a dashed
-gray-blue line in the two butteraugli charts of `presets-crfs/`, next to the
-orange 4:2:0 one, both in the legend. On
-`regular/batch_060` it is no lower than the 4:2:0 conversion: butteraugli
-max-norm 1.39 against 1.36, 3-norm 0.48 against 0.47. The PNGs carry
-almost no color detail finer than 2x2 pixels (0.28 levels on average on
-the first image), so averaging it loses next to nothing; in RGB, 4:4:4 does
-lose less (0.58 against 0.86 levels of RMS error on the first image), but both floors are mostly the rounding
-to 8-bit limited range, and butteraugli sees 4:4:4's rounding of every
-pixel's color slightly more than 4:2:0's smoother color.
+`results/<scenario>/<batch>/yuv444.quality.json` and draws it, in dashed
+black, wherever the orange 4:2:0 conversion is: in each encoding's
+SSIMULACRA2 and butteraugli charts and loss overview (with a column in its
+`summary.md`), in the lossless panel of the two butteraugli charts of
+`presets-crfs/`, and on each dataset's row of the lossless panel in
+`dataset-comparisons/`. It needs no video, so it is measured once per
+batch, for every batch of `results/`, and is the same for all its
+encodings. On every batch it is no lower than the 4:2:0 conversion: on
+`regular/batch_060`, butteraugli max-norm 1.39 against 1.36, 3-norm 0.48
+against 0.47, SSIMULACRA2 89.33 against 89.65 (higher is better), and
+nearly the same on the others (in each `presets-crfs/README.md`). The PNGs carry almost no color detail
+finer than 2x2 pixels (0.28 levels on average on the first image), so
+averaging it loses next to nothing. In RGB, 4:4:4 does lose less (0.58
+against 0.86 levels of RMS error on the first image), but both floors are
+mostly the rounding to 8-bit limited range, and butteraugli sees 4:4:4's
+rounding of every pixel's color slightly more than 4:2:0's smoother
+color.
 
 **Is it acceptable?** Each chart shades the values the eye can or cannot
 see. CIEDE2000, SSIMULACRA2 and butteraugli have their own scales (in the
@@ -519,9 +672,13 @@ in these videos.
 [`scripts/e2e.sh`](scripts/e2e.sh) checks that the client and the server
 work together: it builds the workspace, starts the server, uploads
 `regular/batch_060` (the first 60 frames of sequence 001) with the client,
-and checks the video the server wrote with `ffprobe`: AV1, 8192x4320, 60
-frames. Frames missing from `datasets/ImageSequence/001/` are downloaded
-first from the dataset's Google Drive folder (~2 GB for the 60).
+and checks the video the server wrote: AV1, 8192x4320, one frame per image
+(with `ffprobe`), and in its upload report `yuv420p`, the constant frame
+rate 30000/1001, the first and last capture times, and the video size.
+Frames missing from `datasets/ImageSequence/001/` are downloaded first from
+the dataset's Google Drive folder (~2 GB for the 60). It removes and writes
+again `output/regular/batch_060/preset_9_crf_30/`, the video of the default
+settings.
 
 The test runs on GitHub Actions, together with the unit tests, on every
 push and pull request to `main` that changes the workspace
