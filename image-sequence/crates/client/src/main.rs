@@ -14,10 +14,16 @@
 //! `<out-dir>/<scenario>/<batch>/preset_<P>_crf_<C>/<topic>.client.json`,
 //! apart from the server's report: the two can run in different places.
 //!
+//! With `--fetch`, the client instead reads the sequence's image topics back
+//! from the server (one per format, stored with `server --store-images`), as
+//! mosaicod's clients read a sequence, and times it (see [`fetch`]).
+//!
 //! Each image travels in one gRPC message, which the server rejects above
 //! [`MAX_DECODE_MESSAGE_SIZE`] (50 MiB, mosaicod's default). The client checks
 //! every image's size before connecting (see [`check_image_sizes`]), so an
 //! image that is too large stops the upload before anything is sent.
+
+mod fetch;
 
 use std::{
     fmt::Write as _,
@@ -36,7 +42,7 @@ use arrow_schema::SchemaRef;
 use clap::Parser;
 use common::{
     DEFAULT_TOPIC,
-    images::{TimedImage, read_timestamps},
+    images::{TimedImage, read_capture_times, read_timestamps},
     protocol::{
         DoPutCmd, FORMAT_IMAGE, MAX_DECODE_MESSAGE_SIZE, ResourceLocator, ResourceUuid,
         SEQUENCE_CREATE, SESSION_CREATE, SESSION_FINALIZE, SequenceCreate, SessionCreateResponse, SessionUuid,
@@ -68,6 +74,10 @@ struct Args {
     /// [default: image-sequence/output].
     #[arg(long)]
     out_dir: Option<PathBuf>,
+    /// Instead of uploading, read the sequence's image topics back (one per
+    /// format), as mosaicod's clients read a sequence, and time it.
+    #[arg(long)]
+    fetch: bool,
 }
 
 /// The client's side of `DoPut`, filled in while the images are read.
@@ -182,6 +192,16 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let started = Instant::now();
     let timestamps = args.timestamps.unwrap_or_else(common::default_timestamps);
+    if args.fetch {
+        let sequence = args.sequence.unwrap_or_else(|| sequence_name(&timestamps));
+        let out_dir = args.out_dir.unwrap_or_else(common::default_output_dir);
+        // The capture times this client uploaded, to check the ones it gets back.
+        // Only the times: the images need not be on this machine.
+        let uploaded: Vec<i64> = read_capture_times(&timestamps)?.into_iter().map(|(_, t)| t).collect();
+        let report = fetch::run(&args.url, &sequence, &out_dir, &uploaded).await?;
+        println!("client fetch times: {}", report.display());
+        return Ok(());
+    }
     let images = read_timestamps(&timestamps)?;
     check_image_sizes(&images)?;
     let sequence = args.sequence.unwrap_or_else(|| sequence_name(&timestamps));

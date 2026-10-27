@@ -5,13 +5,17 @@ edition.workspace = true
 
 [dependencies]
 common.workspace = true
+formats.workspace = true
 anyhow.workspace = true
 arrow-array.workspace = true
 arrow-flight.workspace = true
+arrow-ipc.workspace = true
 arrow-schema.workspace = true
 clap.workspace = true
 futures.workspace = true
 prost.workspace = true
+rayon.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tonic.workspace = true
