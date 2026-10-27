@@ -27,6 +27,7 @@ The charts share report.py's and image_formats.py's visual system.
 import argparse
 import json
 import shutil
+from collections import Counter
 from pathlib import Path
 
 import report
@@ -144,9 +145,10 @@ def readme(sequence, settings, runs):
         "    S-->>C: FlightInfo: one endpoint per format<br/>ticket TicketTopic, app_metadata TopicAppMetadata",
         "    loop each endpoint (format)",
         "        C->>S: DoGet: TicketTopic { locator = sequence/camera/images/<format> }",
-        "        loop each batch (rows = 25 MiB / average row size)",
+        "        loop each batch read (rows = 25 MiB / average image size)",
         "            P->>S: record batch (ZSTD undone)",
-        "            S-->>C: FlightData: Arrow IPC, LZ4 or none, at most 512 MiB",
+        "            Note over S: over 25 MiB? split into fewer rows,<br/>never inside an image",
+        "            S-->>C: FlightData per piece: Arrow IPC, LZ4 or none<br/>(the client accepts up to 512 MiB)",
         "            Note over C: check timestamp_ns = timestamps.csv",
         "        end",
         "        C->>F: save each image",
@@ -160,21 +162,56 @@ def readme(sequence, settings, runs):
         "",
         "As mosaicod serves a topic to its clients:",
         "",
-        "1. **Stored as an image topic** (`server --store-images`): each format's images in one Parquet file, laid "
-        "out as mosaicod stores an image topic: a row per image (`timestamp_ns`, `format`, `data`) in capture "
-        "order, the image bytes ZSTD level 5 with no dictionary and no statistics, the timestamps uncompressed "
-        "with page statistics and a bloom filter. `timestamp_ns` is a copy of the capture times the client "
-        "uploaded, which the server saved as they came (`camera.timestamps.parquet`, next to the video): row k "
-        "for image k, as the video drops and repeats no frame. The video's own times are only to the "
-        "millisecond.",
-        "2. **`GetFlightInfo`** on the sequence (a `GetFlightInfoCmd` with its locator): the server answers with "
-        "one endpoint per topic (`camera/images/<format>`), its ticket a `TicketTopic` and its metadata a "
-        "`TopicAppMetadata` (the format, the frames' size, the rows and bytes).",
-        "3. **`DoGet`** with each ticket: the server reads the topic's Parquet file in batches of as many rows as "
-        "fit mosaicod's target message size (25 MiB) at the topic's average row size, and sends them with Arrow "
-        "Flight's encoder, as mosaicod does: a batch over 25 MiB is split by rows, but one row (an image) is "
-        "never split, so a message carries up to 512 MiB (mosaicod's limit), and the client accepts that much. "
-        "The IPC data is LZ4-compressed, as mosaicod sends it, or not: both are measured.",
+        "1. **The server stores the images as image topics** (`server --store-images`, before any client asks). "
+        "Each format becomes one topic, `camera/images/<format>`, kept as one Parquet file laid out as mosaicod "
+        "stores an image topic:",
+        "   - **One row per image**, in capture order, with three columns: `timestamp_ns` (when the image was "
+        "captured), `format` (e.g. `avif`) and `data` (the image file's bytes).",
+        "   - **`data`** is compressed with ZSTD level 5, with no dictionary and no statistics. **`timestamp_ns`** "
+        "is left uncompressed, with page statistics and a bloom filter, so a time range can be found without "
+        "reading the images.",
+        "   - **`timestamp_ns` is the capture time the client uploaded**, not one read from the video (the video "
+        "keeps times only to the millisecond). The server saved the uploaded times as they arrived "
+        "(`camera.timestamps.parquet`, next to the video), and since the video drops and repeats no frame, "
+        "row k is image k.",
+        "2. **`GetFlightInfo`: the client asks what it can read.** It sends a `GetFlightInfoCmd` with the "
+        "sequence's locator, and the server answers with one endpoint per topic, so one per format. Each "
+        "endpoint carries:",
+        "   - a **ticket** (`TicketTopic`): the topic's locator, which the client hands back in `DoGet` to say "
+        "which topic it wants;",
+        "   - **metadata** (`TopicAppMetadata`): the format, the frames' size, and the topic's rows and bytes, "
+        "which the client can read without downloading anything.",
+        "3. **`DoGet`: the client reads one topic per ticket, and the server streams its images back.** The "
+        "server does this as mosaicod does, in three steps:",
+        "   - **It reads the Parquet file in batches sized to fit about 25 MiB** (mosaicod's *target* message "
+        "size). Rows per batch = 25 MiB ÷ the topic's average image size, rounded down, with at least 1. "
+        "Images averaging 8 MiB are read 3 at a time; images averaging over 25 MiB give 0, so they are read "
+        "1 at a time.",
+        "   - **Arrow Flight's encoder splits any batch that still comes out over 25 MiB.** Images vary in size, "
+        "so a batch can go over the target. The encoder measures the batch (uncompressed, in memory), needs "
+        "n = ⌈size ÷ 25 MiB⌉ pieces, and puts ⌊rows ÷ n⌋ rows in each (at least 1). Two things follow. It "
+        "cuts only between rows, never inside an image, so a single image is sent whole however big it is "
+        f"(a {raw_largest:.1f} MiB raw image goes out as one {raw_largest:.1f} MiB message). "
+        "And because it rounds down, a 3-image batch just over 25 MiB needs 2 pieces, gets ⌊3 ÷ 2⌋ = 1 row in "
+        "each, and goes out as 3 one-image messages.",
+        "   - **Each piece becomes one `FlightData` message** (Arrow IPC), compressed with LZ4 as mosaicod sends "
+        "it, or not (both are measured). The split is decided before compression, so LZ4 does not change the "
+        "number of messages. The stream opens with one more message: the schema.",
+        "",
+        "   **25 MiB is what the server aims for, not a limit; 512 MiB is the limit.** Nothing is ever sent at "
+        "512 MiB: it is the largest message mosaicod will send (`GRPC_MSG_MAX_SIZE_BYTES`), and the client "
+        "sets its receive limit to match. Since an image is never split, a message is as big as its images, "
+        "and 512 MiB is how big a single image can get before reading it back would fail. The upload limit "
+        "is different: 50 MiB by default, which raw's images exceed.",
+        "",
+        "   What this gave for each format, uncompressed (LZ4 gives the same messages):",
+        "",
+        *batching(by["none"], keys),
+        "",
+        "   The encoder measures a batch by the memory its buffers hold, which can be more than the image bytes. "
+        "That is why batches with less than 25 MiB of images were still split, and why some messages carry "
+        "fewer images than were read.",
+        "",
         "4. **The client** saves each image as a file and decodes it with the server's own readers (the `formats` "
         f"crate): one at a time, then {workers} at a time. Every image of an exact format must decode to the same "
         "frame as raw's, and every image's `timestamp_ns` must be the one uploaded, or the fetch fails.",
@@ -257,6 +294,31 @@ def readme(sequence, settings, runs):
               "- Client and server share the machine: each slows the other a little.",
               "- One run of each, files in the OS cache (see the server's limits)."]
     return "\n".join(lines) + "\n"
+
+
+def batching(topics, keys):
+    """How DoGet batched each format's images: the rows read per batch (the
+    target over the average image, as the server sizes it), the messages they
+    were split into, and the largest one's image bytes, as table lines."""
+    target = 25 * MIB
+    lines = ["   | Format | Average image | Largest image | Rows read per batch | Images per message | Largest "
+             "message (image bytes) | Messages (with the schema) |",
+             "   |---|---|---|---|---|---|---|"]
+    for key in keys:
+        t = topics[key]
+        sizes = [i["bytes"] for i in t["images"]]
+        average = sum(sizes) / len(sizes)
+        read = min(max(int(target // average), 1), 8192)
+        # Images arrive in order, batch after batch: group them by batch_rows.
+        largest, offset = 0, 0
+        for rows in t["batch_rows"]:
+            largest = max(largest, sum(sizes[offset:offset + rows]))
+            offset += rows
+        counts = Counter(t["batch_rows"])
+        per_message = ", ".join(f"{counts[rows]} × {rows}" for rows in sorted(counts, reverse=True))
+        lines.append(f"   | {name(key)} | {average / MIB:.1f} MiB | {max(sizes) / MIB:.1f} MiB | {read} | "
+                     f"{per_message} | {largest / MIB:.1f} MiB | {t['messages']} |")
+    return lines
 
 
 def ms(seconds):
