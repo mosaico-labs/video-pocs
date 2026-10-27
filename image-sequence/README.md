@@ -15,7 +15,7 @@ the capture time a camera would have recorded, from the
 | Crate | What it does |
 |---|---|
 | [`client`](crates/client/src/main.rs) | Reads a `timestamps.csv` and uploads its images, one PNG per record batch with its capture time, with mosaicod's Arrow Flight upload flow. With `--fetch`, reads the image topics back (`GetFlightInfo`, then `DoGet` per topic), timing and checking them |
-| [`server`](crates/server/src/main.rs) | Receives the upload and encodes it with FFmpeg (SVT-AV1) into 8-bit YUV 4:2:0 (`yuv420p`) while the images arrive, saving the uploaded capture times. Then turns a video back into images (`--extract-images`), measures them with butteraugli (`--image-quality`), stores them as image topics (`--store-images`), and serves those back (`GetFlightInfo`, `DoGet`) |
+| [`server`](crates/server/src/main.rs) | Receives the upload and encodes it with FFmpeg (SVT-AV1) into 8-bit YUV 4:2:0 (`yuv420p`) while the images arrive, saving the uploaded capture times. Then turns a video back into images and stores them as image topics (`--extract-images`), measures them with butteraugli (`--image-quality`), and serves the topics back (`GetFlightInfo`, `DoGet`) |
 | [`formats`](crates/formats/src/lib.rs) | The six image formats a frame can be written in and read back from, shared by the server and the client: raw I420, zstd, lossless AVIF, FFV1 (exact) and PNG, JPEG (converted, for comparison) |
 | [`quality`](crates/quality/src/main.rs) | Times decoding the video with FFmpeg's `libdav1d` (dav1d) alone, then decodes it again and compares every frame with its PNG: PSNR, PSNR-HVS, MS-SSIM and CIEDE2000 from `av-metrics`, SSIMULACRA2 and butteraugli |
 | [`common`](crates/common/src/lib.rs) | The protocol messages (upload and read path), the image schema, CSV reading, PNG decoding, the RGB to YUV conversion, the choice of a constant or variable frame rate, and the output paths |
@@ -305,9 +305,8 @@ Main options:
 | `quality` | `--refresh-conversion` | off | Measure the YUV 4:2:0 conversion again instead of reusing `yuv420.quality.json` |
 | `quality` | `--yuv444-floor` | off | Measure no video, only what the conversion to YUV 4:4:4 alone loses (see [Lossless 4:4:4](#lossless-the-conversion-alone)), into `yuv444.quality.json` |
 | `quality` | `--jobs` | 4 | Frames measured at the same time. Butteraugli needs ~9 GiB at 8K and runs for one frame at a time; with 4 jobs the tool stays at ~15 GB resident |
-| `server` | `--extract-images <video>` | | Instead of listening: the video back to images, in every format, timed and checked |
+| `server` | `--extract-images <video>` | | Instead of listening: the video back to images, in every format, timed and checked, then each format's images stored as an image topic (Parquet), with the uploaded capture times |
 | `server` | `--image-quality <video>` | | Instead of listening: butteraugli of the PNG and JPEG images |
-| `server` | `--store-images <video>` | | Instead of listening: each format's images as an image topic (Parquet), with the uploaded capture times |
 | `server` | `--do-get-compression` | `lz4` | IPC compression of the `DoGet` streams that serve the image topics back: `lz4`, as mosaicod, or `none` |
 | `client` | `--fetch` | off | Instead of uploading: read the sequence's image topics back, time and check them |
 
@@ -551,7 +550,7 @@ sequenceDiagram
     participant S as server
     participant C as client
 
-    Note over P: server --store-images:<br/>{ timestamp_ns (as uploaded), format, data (ZSTD 5) }
+    Note over P: server --extract-images:<br/>{ timestamp_ns (as uploaded), format, data (ZSTD 5) }
     C->>S: GetFlightInfo: GetFlightInfoCmd { locator = sequence }
     S-->>C: FlightInfo: one endpoint per format<br/>ticket TicketTopic, app_metadata TopicAppMetadata
     loop each endpoint (format)
@@ -569,10 +568,10 @@ From `image-sequence/`, for `regular/batch_060` with preset 5 and CRF 18:
 ```sh
 PRESET=5 CRF=18 scripts/run.sh                       # upload, encode, measure the video
 V=output/regular/batch_060/preset_5_crf_18/camera.mkv
-./target/release/server --extract-images $V          # the six formats, timed and checked
+./target/release/server --extract-images $V          # the six formats, timed and checked, stored as image topics
 ./target/release/server --image-quality $V           # butteraugli of PNG and JPEG
 uv run scripts/image_formats.py --preset 5 --crf 18  # image-results/.../server/
-scripts/fetch.sh                                     # --store-images, then the client's fetch, LZ4 and none
+scripts/fetch.sh                                     # the client's fetch, LZ4 and none
 uv run scripts/fetch_results.py --preset 5 --crf 18  # image-results/.../client/
 uv run scripts/format_support.py                     # image-results/format-support/
 ```

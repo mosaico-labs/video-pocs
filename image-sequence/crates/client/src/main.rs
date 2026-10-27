@@ -15,7 +15,7 @@
 //! apart from the server's report: the two can run in different places.
 //!
 //! With `--fetch`, the client instead reads the sequence's image topics back
-//! from the server (one per format, stored with `server --store-images`), as
+//! from the server (one per format, stored by `server --extract-images`), as
 //! mosaicod's clients read a sequence, and times it (see [`fetch`]).
 //!
 //! Each image travels in one gRPC message, which the server rejects above

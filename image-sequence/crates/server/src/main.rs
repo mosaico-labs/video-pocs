@@ -27,11 +27,12 @@
 //! With `--extract-images <video>` the server does not listen: it turns a
 //! video it wrote back into images, one per frame, in every format of the
 //! `formats` crate (the exact YUV 4:2:0 ones, and PNG and JPEG for
-//! comparison), and compares their sizes and times (see [`images`]). With `--image-quality <video>` it then measures
-//! with butteraugli the images of the formats that are not exact. With
-//! `--store-images <video>` it stores each format's images as an image topic
-//! (a Parquet file), which, listening, it serves back to clients as mosaicod
-//! serves a topic: `GetFlightInfo`, then `DoGet` (see [`topics`]).
+//! comparison), and compares their sizes and times (see [`images`]). Then it
+//! stores each format's images as an image topic (a Parquet file), which,
+//! listening, it serves back to clients as mosaicod serves a topic:
+//! `GetFlightInfo`, then `DoGet` (see [`topics`]). With
+//! `--image-quality <video>` it measures with butteraugli the images of the
+//! formats that are not exact.
 
 mod encoder;
 mod images;
@@ -103,7 +104,9 @@ struct Args {
     /// Instead of listening, write every frame of this video as an image in
     /// each format (the exact YUV 4:2:0 ones, PNG and JPEG), to
     /// `<video dir>/images/<format>/`, and their sizes and times to
-    /// `<topic>.images.json` next to it.
+    /// `<topic>.images.json` next to it. Then store each format's images as
+    /// an image topic, one Parquet file per format in `<video dir>/images/`,
+    /// laid out as mosaicod stores one, with the uploaded capture times.
     #[arg(long, value_name = "VIDEO")]
     extract_images: Option<PathBuf>,
     /// Instead of listening, measure with butteraugli how far the images of
@@ -111,11 +114,6 @@ struct Args {
     /// the frames of this video, into `<topic>.images-quality.json`.
     #[arg(long, value_name = "VIDEO", conflicts_with = "extract_images")]
     image_quality: Option<PathBuf>,
-    /// Instead of listening, store each format's images of this video
-    /// (written by --extract-images) as an image topic, one Parquet file per
-    /// format in `<video dir>/images/`, laid out as mosaicod stores one.
-    #[arg(long, value_name = "VIDEO", conflicts_with_all = ["extract_images", "image_quality"])]
-    store_images: Option<PathBuf>,
     /// IPC compression of the `DoGet` streams that serve image topics back:
     /// LZ4, as mosaicod, or none.
     #[arg(long, value_enum, default_value_t = DoGetCompression::Lz4)]
@@ -589,6 +587,14 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     formats::ffmpeg::init()?;
     if let Some(video) = args.extract_images {
+        // Every upload saves its capture times; without them the images
+        // cannot be stored, so say so before decoding the whole video.
+        let timestamps = common::timestamps_path(&video);
+        anyhow::ensure!(
+            timestamps.exists(),
+            "{} is missing (the upload's capture times: upload the batch again)",
+            timestamps.display()
+        );
         let report = images::extract(&video)?;
         for format in &report.formats {
             eprintln!(
@@ -596,9 +602,6 @@ async fn main() -> anyhow::Result<()> {
                 format.format, format.bytes, format.encode_seconds, format.decode_seconds, format.dir
             );
         }
-        return Ok(());
-    }
-    if let Some(video) = args.store_images {
         for (format, bytes, seconds) in topics::store(&video)? {
             eprintln!("{format:>4}: stored as an image topic, {bytes} bytes, in {seconds:.1} s");
         }

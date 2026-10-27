@@ -4,8 +4,8 @@
 # dependencies = ["matplotlib>=3.11"]
 # ///
 """Charts the client reading a batch's images back from the server
-(scripts/fetch.sh: `server --store-images`, then `client --fetch` with the
-server's DoGet streams LZ4-compressed and uncompressed), in the tracked
+(scripts/fetch.sh: `client --fetch` with the server's DoGet streams
+LZ4-compressed and uncompressed), in the tracked
 image-results/<scenario>/<batch>/preset_<P>_crf_<C>/client/ folder, next to
 the server's results in server/:
 
@@ -139,7 +139,7 @@ def readme(sequence, settings, runs):
         "    participant C as client",
         "    participant F as output/.../fetched/<format>/",
         "",
-        "    Note over P: one image topic per format (server --store-images):<br/>"
+        "    Note over P: one image topic per format, stored before the fetch:<br/>"
         "{ timestamp_ns (as uploaded), format, data (ZSTD 5) }",
         "    C->>S: GetFlightInfo: GetFlightInfoCmd { locator = sequence }",
         "    S-->>C: FlightInfo: one endpoint per format<br/>ticket TicketTopic, app_metadata TopicAppMetadata",
@@ -162,18 +162,12 @@ def readme(sequence, settings, runs):
         "",
         "As mosaicod serves a topic to its clients:",
         "",
-        "1. **The server stores the images as image topics** (`server --store-images`, before any client asks). "
-        "Each format becomes one topic, `camera/images/<format>`, kept as one Parquet file laid out as mosaicod "
-        "stores an image topic:",
-        "   - **One row per image**, in capture order, with three columns: `timestamp_ns` (when the image was "
-        "captured), `format` (e.g. `avif`) and `data` (the image file's bytes).",
-        "   - **`data`** is compressed with ZSTD level 5, with no dictionary and no statistics. **`timestamp_ns`** "
-        "is left uncompressed, with page statistics and a bloom filter, so a time range can be found without "
-        "reading the images.",
-        "   - **`timestamp_ns` is the capture time the client uploaded**, not one read from the video (the video "
-        "keeps times only to the millisecond). The server saved the uploaded times as they arrived "
-        "(`camera.timestamps.parquet`, next to the video), and since the video drops and repeats no frame, "
-        "row k is image k.",
+        "1. **Before the client asks, each format's images are already stored on the server.** They are the "
+        "video's frames turned back into each format ([the server's results](../server/README.md)), and each "
+        "format is kept as one topic, `camera/images/<format>`: one Parquet file with a row per image, in capture "
+        "order, holding its capture time (`timestamp_ns`, as the client uploaded it), its `format` and its bytes "
+        "(`data`, ZSTD-compressed), as mosaicod stores an image topic. This is done once, ahead of the fetch, "
+        "and is not in the times below.",
         "2. **`GetFlightInfo`: the client asks what it can read.** It sends a `GetFlightInfoCmd` with the "
         "sequence's locator, and the server answers with one endpoint per topic, so one per format. Each "
         "endpoint carries:",

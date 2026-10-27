@@ -9,8 +9,8 @@
 //! each image) are saved as they are, one row per image in upload order, in
 //! `<topic>.timestamps.parquet` next to the video ([`write_timestamps`]).
 //!
-//! **Storing** ([`store`], `server --store-images`): each format's images,
-//! written by `--extract-images`, go into one Parquet file laid out as
+//! **Storing** ([`store`], at the end of `server --extract-images`): each
+//! format's images, just written, go into one Parquet file laid out as
 //! mosaicod stores an image topic: the rows of the topic's schema
 //! (`timestamp_ns`, `format`, `data`) in capture order, `timestamp_ns` a copy
 //! of the uploaded times (frame k is image k: the video drops and repeats
@@ -243,7 +243,7 @@ impl ImageTopics {
         let format = FORMATS.iter().find(|f| image_topic(DEFAULT_TOPIC, f.name) == topic).ok_or_else(bad)?;
         let path = parquet_path(&self.video(sequence), format);
         if !path.exists() {
-            return Err(Status::not_found(format!("{locator} is not stored (run --store-images)")));
+            return Err(Status::not_found(format!("{locator} is not stored (run --extract-images)")));
         }
         Ok((format, path))
     }
@@ -267,7 +267,7 @@ impl ImageTopics {
                 .collect()
         };
         if locators.is_empty() {
-            return Err(Status::not_found(format!("no image topics in {} (run --store-images)", cmd.locator)));
+            return Err(Status::not_found(format!("no image topics in {} (run --extract-images)", cmd.locator)));
         }
         // Every topic first: an unknown one is not found, before anything is read.
         let topics = locators

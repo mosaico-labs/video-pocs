@@ -6,9 +6,7 @@
 #   image-sequence/scripts/fetch.sh                      # regular/batch_060, preset 5, CRF 18
 #   PRESET=9 CRF=30 image-sequence/scripts/fetch.sh <timestamps.csv>
 #
-# Needs the batch's images (server --extract-images). Stores them as image
-# topics first (server --store-images, ~20 s), every time, so the topics are
-# always those of the current images and upload. Each run starts
+# Needs the batch's image topics (server --extract-images). Each run starts
 # the server on loopback, fetches with the client, then stops the server.
 # The client's reports go next to the video, as <topic>.fetch-lz4_frame.json
 # and <topic>.fetch-none.json; logs to output/logs/<scenario>/<batch>/<encoding>/.
@@ -21,13 +19,10 @@ PRESET="${PRESET:-5}"
 CRF="${CRF:-18}"
 BATCH_DIR="$(dirname "$TIMESTAMPS")"
 BATCH="$(basename "$(dirname "$BATCH_DIR")")/$(basename "$BATCH_DIR")"
-VIDEO="output/$BATCH/preset_${PRESET}_crf_${CRF}/camera.mkv"
 LOGS="output/logs/$BATCH/preset_${PRESET}_crf_${CRF}"
 mkdir -p "$LOGS"
 
 cargo build --release --quiet
-echo "== storing the images as image topics"
-./target/release/server --store-images "$VIDEO"
 
 for compression in lz4 none; do
     echo "== fetching, DoGet compression: $compression"
