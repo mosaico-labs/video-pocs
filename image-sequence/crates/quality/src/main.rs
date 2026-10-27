@@ -30,7 +30,7 @@
 //! Every stage of the measuring is timed: each frame's log line gives its
 //! breakdown, and the totals go to the summary and `<video>.quality.json`.
 //!
-//! It also checks that each frame's capture time (the [`CAPTURE_START_TAG`]
+//! It also checks that each frame's capture time (the [`common::CAPTURE_START_TAG`]
 //! tag plus the frame timestamp) matches the CSV. FFmpeg's Matroska muxer
 //! stores timestamps in milliseconds, so up to 0.5 ms of difference is
 //! expected.
@@ -62,7 +62,7 @@ use av_metrics::video::{
 };
 use clap::Parser;
 use common::{
-    CAPTURE_START_TAG, DEFAULT_CRF, DEFAULT_PRESET, DEFAULT_TOPIC,
+    DEFAULT_CRF, DEFAULT_PRESET, DEFAULT_TOPIC,
     images::{Rgb8, TimedImage, Yuv420, load_png, read_timestamps, rgb_to_yuv420, rgb_to_yuv444},
     quality_csv_path, sequence_dir, sequence_name, video_path,
 };
@@ -568,7 +568,7 @@ fn flush(
 }
 
 /// The decoder used for every video: dav1d, through FFmpeg.
-const DECODER: &str = "libdav1d";
+const DECODER: &str = formats::ffmpeg::AV1_DECODER;
 
 /// Opens the video and a dav1d decoder for its video stream: returns them
 /// with the stream's index and time base.
@@ -617,11 +617,7 @@ fn decode_and_measure(
     measuring: &Measuring,
 ) -> Result<Vec<Row>> {
     let (mut input, mut decoder, index, time_base) = open_video(video)?;
-    let start_ns: i64 = input
-        .metadata()
-        .get(CAPTURE_START_TAG)
-        .with_context(|| format!("{} has no {CAPTURE_START_TAG} tag", video.display()))?
-        .parse()?;
+    let start_ns = formats::ffmpeg::capture_start_ns(&input, video)?;
 
     let mut rows = Vec::new();
     let mut pending = Vec::new();
@@ -630,9 +626,7 @@ fn decode_and_measure(
         while decoder.receive_frame(&mut picture).is_ok() {
             let n = rows.len();
             let pts = picture.pts().context("decoded frame without timestamp")?;
-            let capture_ns = start_ns
-                + (i128::from(pts) * 1_000_000_000 * i128::from(time_base.numerator())
-                    / i128::from(time_base.denominator())) as i64;
+            let capture_ns = formats::ffmpeg::capture_ns(start_ns, pts, time_base);
             rows.push(Row {
                 capture_ns,
                 metrics: None,
@@ -766,8 +760,7 @@ fn summary(video: &Path, timestamps: &Path, images: &[TimedImage], rows: &[Row])
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    ffmpeg::init()?;
-    ffmpeg::util::log::set_level(ffmpeg::util::log::Level::Warning);
+    formats::ffmpeg::init()?;
 
     let timestamps = args.timestamps.unwrap_or_else(common::default_timestamps);
     let images = read_timestamps(&timestamps)?;
@@ -789,6 +782,10 @@ fn main() -> Result<()> {
     let started = Instant::now();
     let (frames, decode_seconds) = time_decoding(&video)?;
     eprintln!("decoded {frames} frames with {DECODER} in {decode_seconds:.2} s");
+    // Before minutes of measuring: one frame per image, or nothing to compare.
+    if frames != images.len() {
+        bail!("{} has {frames} frames, but the CSV lists {} images", video.display(), images.len());
+    }
     let measuring = Measuring {
         conversion: ConversionCache::load(batch_output.join("yuv420.quality.json"), args.refresh_conversion),
     };

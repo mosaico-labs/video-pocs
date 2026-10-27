@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 common.workspace = true
+formats.workspace = true
 anyhow.workspace = true
 av-metrics.workspace = true
 clap.workspace = true

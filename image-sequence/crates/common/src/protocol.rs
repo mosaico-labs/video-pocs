@@ -6,8 +6,16 @@
 //! 4. `DoPut`            -> one record batch per image
 //! 5. `session_finalize` (`DoAction`)
 //!
+//! and to read topics back, as mosaicod's read path does:
+//!
+//! 1. `GetFlightInfo` on a sequence (`GetFlightInfoCmd`) -> one endpoint per
+//!    topic, its ticket a `TicketTopic` and its metadata a `TopicAppMetadata`
+//! 2. `DoGet` with each ticket -> the topic's record batches, sorted by
+//!    `timestamp_ns`
+//!
 //! The protobuf messages are mirrored by hand from
-//! `proto/mosaico/v1/{requests,responses,flight}.proto`: the tags must match.
+//! `proto/mosaico/v1/{requests,responses,flight,time}.proto`: the tags must
+//! match.
 
 use std::sync::Arc;
 
@@ -29,6 +37,26 @@ pub const MAX_DECODE_MESSAGE_SIZE: usize = 50 * 1024 * 1024;
 
 /// Index column every mosaicod topic needs: the capture time of the image.
 pub const TIMESTAMP_COLUMN: &str = "timestamp_ns";
+
+/// Largest message mosaicod sends (`GRPC_MSG_MAX_SIZE_BYTES`), whatever its
+/// decode limit, so that stored data stays readable: a client reading topics
+/// accepts messages this large.
+pub const MAX_ENCODE_MESSAGE_SIZE: usize = 512 * 1024 * 1024;
+
+/// The size mosaicod aims for in each `DoGet` message
+/// (`DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE`): rows per batch are this over
+/// the topic's average row size, and a batch larger than this is split by
+/// rows. A single row (an image) is never split.
+pub const TARGET_ENCODE_MESSAGE_SIZE: usize = 25 * 1024 * 1024;
+
+/// Most rows in a `DoGet` batch (`DEFAULT_MAX_BATCH_SIZE`).
+pub const MAX_BATCH_SIZE: usize = 8192;
+
+/// The topic, in a sequence, of a video's frames as images of `format`:
+/// `<topic>/images/<format>`, e.g. `camera/images/avif`.
+pub fn image_topic(topic: &str, format: &str) -> String {
+    format!("{topic}/images/{format}")
+}
 
 /// requests.proto: SequenceCreate
 #[derive(Clone, PartialEq, prost::Message)]
@@ -92,6 +120,77 @@ pub struct DoPutCmd {
     pub locator: String,
     #[prost(string, tag = "2")]
     pub topic_uuid: String,
+}
+
+/// time.proto: TimestampRange, start inclusive, end exclusive.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct TimestampRange {
+    #[prost(int64, optional, tag = "1")]
+    pub start_ns: Option<i64>,
+    #[prost(int64, optional, tag = "2")]
+    pub end_ns: Option<i64>,
+}
+
+/// flight.proto: GetFlightInfoCmd (payload of `FlightDescriptor.cmd` for
+/// `GetFlightInfo`): a sequence or a topic, and an optional time range.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct GetFlightInfoCmd {
+    #[prost(string, tag = "1")]
+    pub locator: String,
+    #[prost(message, optional, tag = "2")]
+    pub timestamp_range: Option<TimestampRange>,
+}
+
+/// flight.proto: TicketTopic (the `Ticket` of a `DoGet`): one topic, and an
+/// optional time range.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct TicketTopic {
+    #[prost(string, tag = "1")]
+    pub locator: String,
+    #[prost(message, optional, tag = "2")]
+    pub timestamp_range: Option<TimestampRange>,
+}
+
+/// flight.proto: TopicAppMetadataDataInfo.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct TopicAppMetadataDataInfo {
+    #[prost(message, optional, tag = "1")]
+    pub interval: Option<TimestampRange>,
+    #[prost(uint64, tag = "2")]
+    pub total_row_count: u64,
+    #[prost(uint64, tag = "3")]
+    pub total_bytes: u64,
+    #[prost(uint64, tag = "4")]
+    pub total_chunks_count: u64,
+}
+
+/// flight.proto: TopicAppMetadata (the `app_metadata` of a topic's
+/// `FlightEndpoint`), the fields this server fills.
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct TopicAppMetadata {
+    #[prost(string, tag = "4")]
+    pub locator: String,
+    #[prost(int32, tag = "6")]
+    pub serialization_format: i32,
+    /// User metadata, raw JSON: here the image format and the video it was
+    /// made from (see [`ImageTopicMetadata`]).
+    #[prost(bytes = "vec", tag = "7")]
+    pub user_metadata: Vec<u8>,
+    #[prost(message, optional, tag = "8")]
+    pub data_info: Option<TopicAppMetadataDataInfo>,
+}
+
+/// The user metadata of an image topic served back: which format, and the
+/// encoding of the video the images were made from.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImageTopicMetadata {
+    pub format: String,
+    /// The frames' size: the reader of a format without a header (raw,
+    /// zstd) needs it.
+    pub width: u32,
+    pub height: u32,
+    pub preset: u8,
+    pub crf: Option<u8>,
 }
 
 /// Schema of the image topic: one row per image.
@@ -167,20 +266,26 @@ pub struct FrameTimes {
 /// Characters mosaicod rejects in sequence and topic names.
 const INVALID_LOCATOR_CHARS: &[char] = &['!', '"', '\'', '*', '£', '$', '%', '&', '.', ' ', ':'];
 
+/// Whether `part` (a sequence name, or a topic name, which may contain `/`)
+/// is a name mosaicod accepts.
+fn valid_locator_part(part: &str) -> bool {
+    !(part.is_empty()
+        || part.starts_with('/')
+        || part.ends_with('/')
+        || part.contains("//")
+        || part.chars().any(|c| !c.is_ascii() || c.is_ascii_control() || INVALID_LOCATOR_CHARS.contains(&c)))
+}
+
+/// Whether `name` is a sequence name mosaicod accepts (no `/`).
+pub fn valid_sequence_name(name: &str) -> bool {
+    valid_locator_part(name) && !name.contains('/')
+}
+
 /// Splits a `<sequence>/<topic>` locator, rejecting the characters mosaicod
 /// rejects. The topic may itself contain `/`.
 pub fn parse_topic_locator(locator: &str) -> Option<(&str, &str)> {
     let (sequence, topic) = locator.split_once('/')?;
-    let bad = |part: &str| {
-        part.is_empty()
-            || part.starts_with('/')
-            || part.ends_with('/')
-            || part.contains("//")
-            || part
-                .chars()
-                .any(|c| !c.is_ascii() || c.is_ascii_control() || INVALID_LOCATOR_CHARS.contains(&c))
-    };
-    (!bad(sequence) && !sequence.contains('/') && !bad(topic)).then_some((sequence, topic))
+    (valid_sequence_name(sequence) && valid_locator_part(topic)).then_some((sequence, topic))
 }
 
 /// Turns a name into a valid locator part: every character other than ASCII

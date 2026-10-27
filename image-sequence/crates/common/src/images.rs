@@ -26,11 +26,9 @@ pub struct TimedImage {
     pub timestamp_ns: i64,
 }
 
-/// Reads an `image,timestamp_ns` CSV written by `build-timestamps.py`.
-///
-/// The image paths are relative to the repository root, which is found as
-/// the closest folder above the CSV that holds the first image.
-pub fn read_timestamps(csv: &Path) -> Result<Vec<TimedImage>> {
+/// The rows of an `image,timestamp_ns` CSV written by `build-timestamps.py`,
+/// as they are: no image needs to exist (see [`read_timestamps`]).
+pub fn read_capture_times(csv: &Path) -> Result<Vec<(String, i64)>> {
     let text = fs::read_to_string(csv).with_context(|| format!("reading {}", csv.display()))?;
     let mut lines = text.lines();
     ensure!(
@@ -50,6 +48,15 @@ pub fn read_timestamps(csv: &Path) -> Result<Vec<TimedImage>> {
             Ok((image.to_string(), timestamp))
         })
         .collect::<Result<_>>()?;
+    Ok(rows)
+}
+
+/// Reads an `image,timestamp_ns` CSV written by `build-timestamps.py`.
+///
+/// The image paths are relative to the repository root, which is found as
+/// the closest folder above the CSV that holds the first image.
+pub fn read_timestamps(csv: &Path) -> Result<Vec<TimedImage>> {
+    let rows = read_capture_times(csv)?;
     let first = &rows
         .first()
         .with_context(|| format!("{} has no images", csv.display()))?

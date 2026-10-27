@@ -1,0 +1,13 @@
+[package]
+name = "formats"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+common.workspace = true
+ffmpeg-the-third.workspace = true
+jpeg-encoder.workspace = true
+png.workspace = true
+rayon.workspace = true
+zstd.workspace = true

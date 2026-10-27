@@ -102,7 +102,7 @@ pub const DEFAULT_PRESET: u8 = 9;
 /// SVT-AV1 constant rate factor the server encodes with when none is given.
 pub const DEFAULT_CRF: u8 = 30;
 
-/// Folder of a sequence under `output/` and `results/`: a name made by
+/// Folder of a sequence under `output/` and `video-results/`: a name made by
 /// [`sequence_name`] goes back to its scenario and batch folders
 /// (`regular_batch_060` becomes `regular/batch_060`); any other name is
 /// used as is.
@@ -141,6 +141,13 @@ pub fn video_path(output_dir: &Path, locator: &str, preset: u8, crf: Option<u8>)
 /// The server's upload report, saved next to the video.
 pub fn upload_report_path(video: &Path) -> PathBuf {
     video.with_extension("upload.json")
+}
+
+/// The capture times the client uploaded, one row per image in upload order
+/// (one per frame of the video), saved next to the video as Parquet:
+/// `<topic>.timestamps.parquet`.
+pub fn timestamps_path(video: &Path) -> PathBuf {
+    video.with_extension("timestamps.parquet")
 }
 
 /// The client's timing report, saved next to the video in the client's own

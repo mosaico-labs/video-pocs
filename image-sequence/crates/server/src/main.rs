@@ -23,8 +23,19 @@
 //! encoded into a video while it is received (see [`encoder`]). Sequences,
 //! sessions and topics are only kept in memory, so they are forgotten when
 //! the server stops. An existing video is overwritten.
+//!
+//! With `--extract-images <video>` the server does not listen: it turns a
+//! video it wrote back into images, one per frame, in every format of the
+//! `formats` crate (the exact YUV 4:2:0 ones, and PNG and JPEG for
+//! comparison), and compares their sizes and times (see [`images`]). With `--image-quality <video>` it then measures
+//! with butteraugli the images of the formats that are not exact. With
+//! `--store-images <video>` it stores each format's images as an image topic
+//! (a Parquet file), which, listening, it serves back to clients as mosaicod
+//! serves a topic: `GetFlightInfo`, then `DoGet` (see [`topics`]).
 
 mod encoder;
+mod images;
+mod topics;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -89,6 +100,32 @@ struct Args {
     /// capture times as timestamps.
     #[arg(long, default_value = "30000/1001", value_parser = encoder::parse_rate)]
     frame_rate: Rational,
+    /// Instead of listening, write every frame of this video as an image in
+    /// each format (the exact YUV 4:2:0 ones, PNG and JPEG), to
+    /// `<video dir>/images/<format>/`, and their sizes and times to
+    /// `<topic>.images.json` next to it.
+    #[arg(long, value_name = "VIDEO")]
+    extract_images: Option<PathBuf>,
+    /// Instead of listening, measure with butteraugli how far the images of
+    /// the formats that are not exact (written by --extract-images) are from
+    /// the frames of this video, into `<topic>.images-quality.json`.
+    #[arg(long, value_name = "VIDEO", conflicts_with = "extract_images")]
+    image_quality: Option<PathBuf>,
+    /// Instead of listening, store each format's images of this video
+    /// (written by --extract-images) as an image topic, one Parquet file per
+    /// format in `<video dir>/images/`, laid out as mosaicod stores one.
+    #[arg(long, value_name = "VIDEO", conflicts_with_all = ["extract_images", "image_quality"])]
+    store_images: Option<PathBuf>,
+    /// IPC compression of the `DoGet` streams that serve image topics back:
+    /// LZ4, as mosaicod, or none.
+    #[arg(long, value_enum, default_value_t = DoGetCompression::Lz4)]
+    do_get_compression: DoGetCompression,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum DoGetCompression {
+    Lz4,
+    None,
 }
 
 struct Session {
@@ -97,6 +134,8 @@ struct Session {
 }
 
 struct Topic {
+    /// Set when a `DoPut` starts writing it: a topic gets one upload.
+    written: bool,
     uuid: String,
     session_uuid: String,
 }
@@ -113,6 +152,8 @@ struct ImageFlightService {
     out_dir: PathBuf,
     settings: Settings,
     state: Mutex<State>,
+    /// The image topics served back (`GetFlightInfo`, `DoGet`).
+    topics: topics::ImageTopics,
 }
 
 fn internal(error: impl Display) -> Status {
@@ -170,7 +211,7 @@ impl ImageFlightService {
         match action.r#type.as_str() {
             SEQUENCE_CREATE => {
                 let request: SequenceCreate = decode(&action.body)?;
-                if request.locator.is_empty() || request.locator.contains('/') {
+                if !common::protocol::valid_sequence_name(&request.locator) {
                     return Err(Status::invalid_argument(format!(
                         "bad sequence name {:?}",
                         request.locator
@@ -229,6 +270,7 @@ impl ImageFlightService {
                 state.topics.insert(
                     request.locator,
                     Topic {
+                        written: false,
                         uuid: uuid.clone(),
                         session_uuid: request.session_uuid,
                     },
@@ -248,17 +290,30 @@ impl ImageFlightService {
         }
     }
 
-    /// Checks that `cmd` names a topic of an open session, with its uuid.
-    fn check_topic(&self, cmd: &DoPutCmd) -> Result<(), Status> {
-        let state = self.state.lock().unwrap();
+    /// Checks that `cmd` names a topic of an open session, with its uuid,
+    /// that no `DoPut` wrote or is writing it, and claims it.
+    fn claim_topic(&self, cmd: &DoPutCmd) -> Result<(), Status> {
+        let state = &mut *self.state.lock().unwrap();
         let topic = state
             .topics
-            .get(&cmd.locator)
+            .get_mut(&cmd.locator)
             .filter(|t| t.uuid == cmd.topic_uuid)
             .ok_or_else(|| Status::not_found(format!("no topic {} with this uuid", cmd.locator)))?;
         match state.sessions.get(&topic.session_uuid) {
-            Some(session) if !session.finalized => Ok(()),
-            _ => Err(Status::failed_precondition("the topic's session is finalized")),
+            Some(session) if !session.finalized => {}
+            _ => return Err(Status::failed_precondition("the topic's session is finalized")),
+        }
+        if topic.written {
+            return Err(Status::already_exists(format!("topic {} already has its data", cmd.locator)));
+        }
+        topic.written = true;
+        Ok(())
+    }
+
+    /// Gives a topic back after a failed upload, so that it can be retried.
+    fn release_topic(&self, locator: &str) {
+        if let Some(topic) = self.state.lock().unwrap().topics.get_mut(locator) {
+            topic.written = false;
         }
     }
 
@@ -335,15 +390,29 @@ impl ImageFlightService {
             return Err(Status::invalid_argument("missing schema in the first message"));
         };
         check_schema(&schema)?;
-        self.check_topic(&cmd)?;
+        self.claim_topic(&cmd)?;
+        let uploaded = self.upload(cmd.locator.clone(), decoder, started).await;
+        if uploaded.is_err() {
+            self.release_topic(&cmd.locator);
+        }
+        uploaded
+    }
 
-        let path = common::video_path(&self.out_dir, &cmd.locator, self.settings.preset, self.settings.crf);
+    /// The upload of a claimed topic, after its first message.
+    async fn upload(
+        &self,
+        locator: String,
+        mut decoder: FlightDataDecoder,
+        started: Instant,
+    ) -> Result<UploadReport, Status> {
+
+        let path = common::video_path(&self.out_dir, &locator, self.settings.preset, self.settings.crf);
         if let Some(dir) = path.parent() {
             tokio::fs::create_dir_all(dir).await.map_err(internal)?;
         }
         let writer = VideoWriter::spawn(path.clone(), self.settings, started);
         let mut report = UploadReport {
-            locator: cmd.locator.clone(),
+            locator: locator.clone(),
             pixel_format: self.settings.pixel_format,
             preset: self.settings.preset,
             crf: self.settings.crf,
@@ -386,13 +455,16 @@ impl ImageFlightService {
             anyhow::Ok(encoded)
         })
         .await
-        .map_err(internal)?;
+        // A panic is a failure like any other: the cleanup below runs.
+        .unwrap_or_else(|error| Err(anyhow::anyhow!("the encoder panicked: {error}")));
         // A rejected or failed upload leaves no video: not one of part of
         // the sequence.
         let encoded = match (received, encoded) {
             (Ok(()), Ok(encoded)) if encoded.frames == report.images => encoded,
             (received, encoded) => {
                 let _ = tokio::fs::remove_file(&path).await;
+                // Nor the capture times of an earlier upload of the topic.
+                let _ = tokio::fs::remove_file(common::timestamps_path(&path)).await;
                 return Err(match (received, encoded) {
                     (Err(status), _) => status,
                     (Ok(()), Err(error)) => internal(error),
@@ -403,6 +475,16 @@ impl ImageFlightService {
                 });
             }
         };
+        // The capture times as the client sent them, exact: the video keeps
+        // them only to the millisecond. The image topics are made with them.
+        let timestamps = common::timestamps_path(&path);
+        let written = tokio::task::spawn_blocking(move || topics::write_timestamps(&timestamps, &captures))
+            .await
+            .unwrap_or_else(|error| Err(anyhow::anyhow!("writing the capture times panicked: {error}")));
+        if let Err(error) = written {
+            let _ = tokio::fs::remove_file(&path).await;
+            return Err(internal(error));
+        }
         report.width = encoded.width;
         report.height = encoded.height;
         report.video_bytes = encoded.video_bytes;
@@ -481,8 +563,8 @@ impl FlightService for ImageFlightService {
         Err(Status::unimplemented("list_flights"))
     }
 
-    async fn get_flight_info(&self, _: Request<FlightDescriptor>) -> Result<Response<FlightInfo>, Status> {
-        Err(Status::unimplemented("get_flight_info"))
+    async fn get_flight_info(&self, request: Request<FlightDescriptor>) -> Result<Response<FlightInfo>, Status> {
+        Ok(Response::new(self.topics.flight_info(request.into_inner())?))
     }
 
     async fn poll_flight_info(&self, _: Request<FlightDescriptor>) -> Result<Response<PollInfo>, Status> {
@@ -493,8 +575,8 @@ impl FlightService for ImageFlightService {
         Err(Status::unimplemented("get_schema"))
     }
 
-    async fn do_get(&self, _: Request<Ticket>) -> Result<Response<Self::DoGetStream>, Status> {
-        Err(Status::unimplemented("do_get"))
+    async fn do_get(&self, request: Request<Ticket>) -> Result<Response<Self::DoGetStream>, Status> {
+        Ok(Response::new(self.topics.do_get(request.into_inner())?))
     }
 
     async fn do_exchange(&self, _: Request<Streaming<FlightData>>) -> Result<Response<Self::DoExchangeStream>, Status> {
@@ -505,7 +587,36 @@ impl FlightService for ImageFlightService {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    encoder::init_ffmpeg()?;
+    formats::ffmpeg::init()?;
+    if let Some(video) = args.extract_images {
+        let report = images::extract(&video)?;
+        for format in &report.formats {
+            eprintln!(
+                "{:>4}: {} bytes, encoding {:.2} s, decoding {:.2} s ({})",
+                format.format, format.bytes, format.encode_seconds, format.decode_seconds, format.dir
+            );
+        }
+        return Ok(());
+    }
+    if let Some(video) = args.store_images {
+        for (format, bytes, seconds) in topics::store(&video)? {
+            eprintln!("{format:>4}: stored as an image topic, {bytes} bytes, in {seconds:.1} s");
+        }
+        return Ok(());
+    }
+    if let Some(video) = args.image_quality {
+        for format in images::quality::measure(&video)?.formats {
+            let n = format.images.len().max(1) as f64;
+            eprintln!(
+                "{:>4}: butteraugli max-norm {:.4} (mean), 3-norm {:.4} (mean), in {:.0} s",
+                format.format,
+                format.images.iter().map(|i| i.butteraugli_max).sum::<f64>() / n,
+                format.images.iter().map(|i| i.butteraugli_3norm).sum::<f64>() / n,
+                format.seconds
+            );
+        }
+        return Ok(());
+    }
     let out_dir = args.out_dir.unwrap_or_else(common::default_output_dir);
     std::fs::create_dir_all(&out_dir)?;
 
@@ -519,8 +630,19 @@ async fn main() -> anyhow::Result<()> {
         out_dir: out_dir.clone(),
         settings,
         state: Mutex::default(),
+        topics: topics::ImageTopics {
+            out_dir: out_dir.clone(),
+            preset: settings.preset,
+            crf: settings.crf,
+            compression: match args.do_get_compression {
+                DoGetCompression::Lz4 => Some(arrow_ipc::CompressionType::LZ4_FRAME),
+                DoGetCompression::None => None,
+            },
+        },
     })
-    .max_decoding_message_size(MAX_DECODE_MESSAGE_SIZE);
+    .max_decoding_message_size(MAX_DECODE_MESSAGE_SIZE)
+    // As mosaicod: whatever the decode limit, a topic stays readable.
+    .max_encoding_message_size(common::protocol::MAX_ENCODE_MESSAGE_SIZE);
 
     // Bind first, so "listening" is only printed once the port is ours: a
     // taken port fails here instead of after the message.
@@ -553,8 +675,7 @@ mod tests {
     /// times: the images need not be on disk.
     fn capture_times(batch: &str) -> Vec<i64> {
         let csv = common::workspace_dir().join("datasets").join(batch).join("timestamps.csv");
-        let text = std::fs::read_to_string(&csv).unwrap();
-        text.lines().skip(1).map(|line| line.rsplit_once(',').unwrap().1.parse().unwrap()).collect()
+        common::images::read_capture_times(&csv).unwrap().into_iter().map(|(_, t)| t).collect()
     }
 
     /// The images of `times` the server rejects, each checked against the

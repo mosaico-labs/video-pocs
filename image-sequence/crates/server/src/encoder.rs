@@ -50,7 +50,7 @@ use common::{
     PixelFormat, CAPTURE_START_TAG,
 };
 use ffmpeg_the_third::{
-    self as ffmpeg, codec, color, encoder, format, frame, media, util::format::Pixel, Dictionary, Packet,
+    codec, encoder, format, frame, media, util::format::Pixel, Dictionary, Packet,
     Rational,
 };
 use rayon::prelude::*;
@@ -362,22 +362,14 @@ fn encode(
     config.set_format(ffmpeg_pixel(settings.pixel_format));
     config.set_time_base(NANOSECONDS);
     config.set_frame_rate(Some(settings.frame_rate));
-    config.set_colorspace(color::Space::BT709);
-    config.set_color_range(color::Range::MPEG);
-    // SAFETY: plain field writes on a context that is not open yet.
-    unsafe {
-        let context = config.as_mut_ptr();
-        // The PNGs are sRGB: BT.709 primaries with the sRGB transfer curve.
-        (*context).color_primaries = color::Primaries::BT709.into();
-        (*context).color_trc = color::TransferCharacteristic::IEC61966_2_1.into();
-    }
+    formats::ffmpeg::set_color_tags(&mut config);
     if global_header {
         config.set_flags(codec::Flags::GLOBAL_HEADER);
     }
     let mut options = Dictionary::new();
     options.set("preset", settings.preset.to_string());
     match settings.crf {
-        Some(crf) => options.set("crf", &crf.to_string()),
+        Some(crf) => options.set("crf", crf.to_string()),
         None => options.set("svtav1-params", "lossless=1"),
     }
     let mut encoder = config
@@ -465,12 +457,21 @@ fn encode(
 /// packets in presentation order: no frame is dropped or repeated. Returns
 /// the size of the new video.
 pub fn make_constant(path: &Path, frame_rate: FrameRate, frames: u64) -> Result<u64> {
+    let temporary = path.with_extension("constant.mkv");
+    let remuxed = remux_constant(path, &temporary, frame_rate, frames);
+    if remuxed.is_err() {
+        let _ = std::fs::remove_file(&temporary); // whatever step failed
+    }
+    remuxed
+}
+
+/// [`make_constant`], through `temporary`, renamed to `path` once complete.
+fn remux_constant(path: &Path, temporary: &Path, frame_rate: FrameRate, frames: u64) -> Result<u64> {
     let rate = Rational(frame_rate.num, frame_rate.den);
     let period = rate.invert();
-    let temporary = path.with_extension("constant.mkv");
     let mut input = format::input(path).with_context(|| format!("opening {}", path.display()))?;
     let mut output =
-        format::output(&temporary).with_context(|| format!("creating {}", temporary.display()))?;
+        format::output(temporary).with_context(|| format!("creating {}", temporary.display()))?;
 
     let source = input
         .streams()
@@ -517,10 +518,9 @@ pub fn make_constant(path: &Path, frame_rate: FrameRate, frames: u64) -> Result<
     output.write_trailer()?;
     drop(output); // closes the file
     if count != frames {
-        let _ = std::fs::remove_file(&temporary);
         bail!("{} holds {count} frames, not the {frames} encoded", path.display());
     }
-    std::fs::rename(&temporary, path)
+    std::fs::rename(temporary, path)
         .with_context(|| format!("replacing {} with {}", path.display(), temporary.display()))?;
     Ok(std::fs::metadata(path)?.len())
 }
@@ -534,11 +534,4 @@ pub fn parse_rate(value: &str) -> Result<Rational, String> {
             "expected a frame rate like 30000/1001, not {value:?}"
         )),
     }
-}
-
-/// Initializes FFmpeg, keeping its own log to warnings and errors.
-pub fn init_ffmpeg() -> Result<()> {
-    ffmpeg::init()?;
-    ffmpeg::util::log::set_level(ffmpeg::util::log::Level::Warning);
-    Ok(())
 }

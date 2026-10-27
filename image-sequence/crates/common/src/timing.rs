@@ -79,8 +79,9 @@ fn on_grid(frame_rate: FrameRate, index: u64, offset_ns: i64) -> bool {
 }
 
 /// How to time a video of images captured at `timestamps_ns`, in upload
-/// order: at a constant frame rate if one keeps every capture time (see
-/// [`on_grid`]), trying [`NOMINAL_FRAME_RATE`] first and then the rate of
+/// order: at a constant frame rate if one keeps every capture time (each
+/// within half the video's unit of its place on the rate's grid), trying
+/// [`NOMINAL_FRAME_RATE`] first and then the rate of
 /// the first and last capture times; otherwise at a variable frame rate. A
 /// single image is at the nominal rate.
 pub fn frame_timing(timestamps_ns: &[i64]) -> FrameTiming {
