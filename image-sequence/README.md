@@ -3,7 +3,10 @@
 A Rust workspace that uploads an image sequence with
 [mosaicod](https://github.com/mosaico-labs/mosaico)'s upload flow, turns it
 into an AV1 video in a Matroska (`.mkv`) file, and measures how much quality
-the video lost compared with the images.
+the video lost compared with the images. It then turns the video back into
+images, in six formats, and serves them back to a client as mosaicod serves
+a topic, to compare the formats a client could get its frames in (see
+[Back to images](#back-to-images)).
 
 The images are the 8K PNG frames of `datasets/ImageSequence/001`, each with
 the capture time a camera would have recorded, from the
@@ -11,10 +14,11 @@ the capture time a camera would have recorded, from the
 
 | Crate | What it does |
 |---|---|
-| [`client`](crates/client/src/main.rs) | Reads a `timestamps.csv` and uploads its images, one PNG per record batch with its capture time, with mosaicod's Arrow Flight upload flow |
-| [`server`](crates/server/src/main.rs) | Receives the upload and encodes it with FFmpeg (SVT-AV1) into 8-bit YUV 4:2:0 (`yuv420p`) while the images arrive |
+| [`client`](crates/client/src/main.rs) | Reads a `timestamps.csv` and uploads its images, one PNG per record batch with its capture time, with mosaicod's Arrow Flight upload flow. With `--fetch`, reads the image topics back (`GetFlightInfo`, then `DoGet` per topic), timing and checking them |
+| [`server`](crates/server/src/main.rs) | Receives the upload and encodes it with FFmpeg (SVT-AV1) into 8-bit YUV 4:2:0 (`yuv420p`) while the images arrive, saving the uploaded capture times. Then turns a video back into images (`--extract-images`), measures them with butteraugli (`--image-quality`), stores them as image topics (`--store-images`), and serves those back (`GetFlightInfo`, `DoGet`) |
+| [`formats`](crates/formats/src/lib.rs) | The six image formats a frame can be written in and read back from, shared by the server and the client: raw I420, zstd, lossless AVIF, FFV1 (exact) and PNG, JPEG (converted, for comparison) |
 | [`quality`](crates/quality/src/main.rs) | Times decoding the video with FFmpeg's `libdav1d` (dav1d) alone, then decodes it again and compares every frame with its PNG: PSNR, PSNR-HVS, MS-SSIM and CIEDE2000 from `av-metrics`, SSIMULACRA2 and butteraugli |
-| [`common`](crates/common/src/lib.rs) | The protocol messages, the image schema, CSV reading, PNG decoding and the RGB to YUV conversion |
+| [`common`](crates/common/src/lib.rs) | The protocol messages (upload and read path), the image schema, CSV reading, PNG decoding, the RGB to YUV conversion, the choice of a constant or variable frame rate, and the output paths |
 
 
 ## Data flow
@@ -35,7 +39,7 @@ sequenceDiagram
         Note over S: decode PNG → RGB → YUV 4:2:0 (BT.709, 8 bits)<br/>→ SVT-AV1 frame with pts = capture time − first capture time
         S->>V: AV1 packets (Matroska muxer)
     end
-    S->>V: camera.upload.json (sizes, timings)
+    S->>V: camera.upload.json (sizes, timings)<br/>camera.timestamps.parquet (the capture times, as uploaded)
     S-->>C: PutResult { upload report as JSON }
     C->>S: session_finalize
     Note over C: camera.client.json (client times)
@@ -268,9 +272,14 @@ The sequence is named after the scenario and batch (for example
 of its scenario, batch and encoder settings, so that encodings of the same
 batch with different presets and CRFs sit side by side:
 `output/<scenario>/<batch>/preset_<P>_crf_<C>/camera.mkv`, with
-`camera.upload.json` (the server's sizes and times), `camera.client.json`
+`camera.upload.json` (the server's sizes and times),
+`camera.timestamps.parquet` (the capture times as uploaded, to the
+nanosecond: the video keeps them to the millisecond), `camera.client.json`
 (the client's times), `camera.quality.csv`, `camera.quality.txt` and
-`camera.quality.json` next to it. The client writes its file under its own
+`camera.quality.json` next to it; and, from [Back to images](#back-to-images),
+`images/<format>/` (the images), `images/<format>.parquet` (the image
+topics), `fetched/<format>/` (the client's copies), `camera.images.json`,
+`camera.images-quality.json` and `camera.fetch-<compression>.json`. The client writes its file under its own
 `--out-dir`, so it stays apart from the server's when the two run on
 different machines. `quality` takes the same `--preset` and
 `--crf` as the server (same defaults) to find the video. `output/` is not
@@ -296,6 +305,11 @@ Main options:
 | `quality` | `--refresh-conversion` | off | Measure the YUV 4:2:0 conversion again instead of reusing `yuv420.quality.json` |
 | `quality` | `--yuv444-floor` | off | Measure no video, only what the conversion to YUV 4:4:4 alone loses (see [Lossless 4:4:4](#lossless-the-conversion-alone)), into `yuv444.quality.json` |
 | `quality` | `--jobs` | 4 | Frames measured at the same time. Butteraugli needs ~9 GiB at 8K and runs for one frame at a time; with 4 jobs the tool stays at ~15 GB resident |
+| `server` | `--extract-images <video>` | | Instead of listening: the video back to images, in every format, timed and checked |
+| `server` | `--image-quality <video>` | | Instead of listening: butteraugli of the PNG and JPEG images |
+| `server` | `--store-images <video>` | | Instead of listening: each format's images as an image topic (Parquet), with the uploaded capture times |
+| `server` | `--do-get-compression` | `lz4` | IPC compression of the `DoGet` streams that serve the image topics back: `lz4`, as mosaicod, or `none` |
+| `client` | `--fetch` | off | Instead of uploading: read the sequence's image topics back, time and check them |
 
 
 ## Results
@@ -308,9 +322,9 @@ matplotlib on its first run. After the three steps of
 
 ```sh
 uv run scripts/report.py   # takes the same --preset and --crf as quality
-uv run scripts/report.py --compare-only   # only presets-crfs/, from results/
+uv run scripts/report.py --compare-only   # only presets-crfs/, from video-results/
 uv run scripts/report.py --compare-datasets --preset 5   # only dataset-comparisons/
-uv run scripts/report.py --redraw --preset 5   # every chart in results/ again, from results/
+uv run scripts/report.py --redraw --preset 5   # every chart in video-results/ again, from video-results/
 ```
 
 [`scripts/run.sh`](scripts/run.sh) runs everything instead: it builds the
@@ -322,13 +336,13 @@ It takes a `timestamps.csv` as argument (default
 `PRESET` and `CRF`:
 
 ```sh
-scripts/run.sh                   # results/regular/batch_060/preset_9_crf_30/
-PRESET=4 CRF=35 scripts/run.sh   # results/regular/batch_060/preset_4_crf_35/
-LOSSLESS=1 scripts/run.sh        # results/regular/batch_060/preset_9_lossless/
+scripts/run.sh                   # video-results/regular/batch_060/preset_9_crf_30/
+PRESET=4 CRF=35 scripts/run.sh   # video-results/regular/batch_060/preset_4_crf_35/
+LOSSLESS=1 scripts/run.sh        # video-results/regular/batch_060/preset_9_lossless/
 ```
 
 The report collects one encoding into
-`results/<scenario>/<batch>/preset_<P>_crf_<C>/`:
+`video-results/<scenario>/<batch>/preset_<P>_crf_<C>/`:
 
 - `summary.md`: what the video lost, the client's and the server's times,
   the file size and the raw metric tables, with the charts;
@@ -353,7 +367,7 @@ The report collects one encoding into
   against the video's.
 
 **Comparing presets and CRFs.** Each run of the report also rebuilds the
-charts in `results/<scenario>/<batch>/presets-crfs/` from every
+charts in `video-results/<scenario>/<batch>/presets-crfs/` from every
 `preset_<P>_crf_<C>/` folder of the batch. Every chart is one measure
 against the CRF, always on the x axis, one line per preset and one point per
 CRF, on a scale fitted to the values instead of starting at 0 (spanning at
@@ -404,8 +418,8 @@ showing the charts can take most of a core), and let it rest between runs
 (see the sweep below).
 
 **Comparing datasets.** `--compare-datasets --preset <P>` writes
-`results/dataset-comparisons/` from the encodings with that preset of every
-batch in `results/`, one line per batch, in the layout of `presets-crfs/`,
+`video-results/dataset-comparisons/` from the encodings with that preset of every
+batch in `video-results/`, one line per batch, in the layout of `presets-crfs/`,
 each dataset in its own color: `video-size-per-frame.svg`, `bitrate.svg`
 (over the time the frames cover), `butteraugli-max.svg` and
 `butteraugli-3norm.svg` (with each dataset's 4:4:4 conversion on its row
@@ -502,16 +516,73 @@ decoded with dav1d with nothing else running, file reading included
 
 The results so far:
 
-- [`regular/batch_060`, presets 5, 6 and 9 compared](results/regular/batch_060/presets-crfs/README.md),
+- [`regular/batch_060`, presets 5, 6 and 9 compared](video-results/regular/batch_060/presets-crfs/README.md),
   at CRF 18, 22, 26, 30 and 35 and lossless, for example
-  [preset 9, CRF 30](results/regular/batch_060/preset_9_crf_30/summary.md)
+  [preset 9, CRF 30](video-results/regular/batch_060/preset_9_crf_30/summary.md)
   and the lossless ones, the YUV 4:2:0 conversion alone:
-  [preset 5](results/regular/batch_060/preset_5_lossless/summary.md),
-  [preset 6](results/regular/batch_060/preset_6_lossless/summary.md),
-  [preset 9](results/regular/batch_060/preset_9_lossless/summary.md)
-- [the datasets compared at preset 5](results/dataset-comparisons/README.md):
+  [preset 5](video-results/regular/batch_060/preset_5_lossless/summary.md),
+  [preset 6](video-results/regular/batch_060/preset_6_lossless/summary.md),
+  [preset 9](video-results/regular/batch_060/preset_9_lossless/summary.md)
+- [the datasets compared at preset 5](video-results/dataset-comparisons/README.md):
   `regular`, `frame-drops`, `jitter`, `rate-change` and `sparse`, every CRF
   and lossless
+
+### Back to images
+
+To give a client the frames as images, the server turns a video back into
+one image per frame in six formats (the [`formats`](crates/formats/src/lib.rs)
+crate, one file per format):
+
+- **exact**, the frames as dav1d decodes them, 8-bit YUV 4:2:0: raw I420,
+  zstd, lossless AVIF (SVT-AV1) and FFV1. Every image is read back and checked
+  byte for byte against its frame;
+- **converted**, for comparison: PNG (16-bit RGB) and JPEG (quality 100,
+  BT.601 full range), losing as little as each allows; what each loses is
+  measured (RMS error and butteraugli).
+
+Each format is timed one image at a time, then 4 at a time. The server then
+stores each format's images as an image topic, one Parquet file laid out as
+mosaicod stores one, its `timestamp_ns` copied from the uploaded capture
+times, and serves them back as mosaicod serves a topic:
+
+```mermaid
+sequenceDiagram
+    participant P as output/.../images/<format>.parquet
+    participant S as server
+    participant C as client
+
+    Note over P: server --store-images:<br/>{ timestamp_ns (as uploaded), format, data (ZSTD 5) }
+    C->>S: GetFlightInfo: GetFlightInfoCmd { locator = sequence }
+    S-->>C: FlightInfo: one endpoint per format<br/>ticket TicketTopic, app_metadata TopicAppMetadata
+    loop each endpoint (format)
+        C->>S: DoGet: TicketTopic { locator = sequence/camera/images/<format> }
+        loop each batch (rows = 25 MiB / average row size)
+            P->>S: record batch (ZSTD undone)
+            S-->>C: FlightData: Arrow IPC, LZ4 or none, at most 512 MiB
+        end
+        Note over C: save, decode with the formats crate,<br/>check frames and timestamps
+    end
+```
+
+From `image-sequence/`, for `regular/batch_060` with preset 5 and CRF 18:
+
+```sh
+PRESET=5 CRF=18 scripts/run.sh                       # upload, encode, measure the video
+V=output/regular/batch_060/preset_5_crf_18/camera.mkv
+./target/release/server --extract-images $V          # the six formats, timed and checked
+./target/release/server --image-quality $V           # butteraugli of PNG and JPEG
+uv run scripts/image_formats.py --preset 5 --crf 18  # image-results/.../server/
+scripts/fetch.sh                                     # --store-images, then the client's fetch, LZ4 and none
+uv run scripts/fetch_results.py --preset 5 --crf 18  # image-results/.../client/
+uv run scripts/format_support.py                     # image-results/format-support/
+```
+
+The results:
+
+- [`regular/batch_060`, preset 5, CRF 18](image-results/regular/batch_060/preset_5_crf_18/server/README.md):
+  the six formats on the server, and the [client reading them back](image-results/regular/batch_060/preset_5_crf_18/client/README.md)
+- [how widely the formats are supported](image-results/format-support/README.md), from public sources:
+  browsers, viewers, Python, FFmpeg, use on the web, and how simple each is to decode
 
 ### The metrics
 
@@ -610,13 +681,13 @@ would be the conversion to 8-bit YUV 4:4:4, which needs no encoding:
 `quality --yuv444-floor` measures it on each image, the same way as the
 4:2:0 conversion, into `output/<scenario>/<batch>/yuv444.quality.json`
 (~4 min for the 60 images), and `scripts/report.py` copies it to
-`results/<scenario>/<batch>/yuv444.quality.json` and draws it, in dashed
+`video-results/<scenario>/<batch>/yuv444.quality.json` and draws it, in dashed
 black, wherever the orange 4:2:0 conversion is: in each encoding's
 SSIMULACRA2 and butteraugli charts and loss overview (with a column in its
 `summary.md`), in the lossless panel of the two butteraugli charts of
 `presets-crfs/`, and on each dataset's row of the lossless panel in
 `dataset-comparisons/`. It needs no video, so it is measured once per
-batch, for every batch of `results/`, and is the same for all its
+batch, for every batch of `video-results/`, and is the same for all its
 encodings. On every batch it is no lower than the 4:2:0 conversion: on
 `regular/batch_060`, butteraugli max-norm 1.39 against 1.36, 3-norm 0.48
 against 0.47, SSIMULACRA2 89.33 against 89.65 (higher is better), and
