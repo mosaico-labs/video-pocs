@@ -1,0 +1,6 @@
+/target
+# The AV1 videos and FFV1 frames built by `prepare`, and the images written
+# from them: too large for GitHub
+/av1
+/ffv1
+/output

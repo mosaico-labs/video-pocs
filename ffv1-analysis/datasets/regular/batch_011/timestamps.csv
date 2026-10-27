@@ -1,0 +1,12 @@
+image,timestamp_ns
+datasets/ImageSequence/001/000_8K.png,1767225600000000000
+datasets/ImageSequence/001/001_8K.png,1767225600033366667
+datasets/ImageSequence/001/002_8K.png,1767225600066733333
+datasets/ImageSequence/001/003_8K.png,1767225600100100000
+datasets/ImageSequence/001/004_8K.png,1767225600133466667
+datasets/ImageSequence/001/005_8K.png,1767225600166833333
+datasets/ImageSequence/001/006_8K.png,1767225600200200000
+datasets/ImageSequence/001/007_8K.png,1767225600233566667
+datasets/ImageSequence/001/008_8K.png,1767225600266933333
+datasets/ImageSequence/001/009_8K.png,1767225600300300000
+datasets/ImageSequence/001/010_8K.png,1767225600333666667

@@ -1,0 +1,498 @@
+{
+  "input": "ffv1/regular/batch_060",
+  "frames": 60,
+  "formats": [
+    {
+      "format": "png",
+      "seconds": 157.420957541,
+      "images": [
+        {
+          "butteraugli_max": 0.1240922063589096,
+          "butteraugli_3norm": 0.015287018718029318
+        },
+        {
+          "butteraugli_max": 0.19619764387607574,
+          "butteraugli_3norm": 0.02395042204621588
+        },
+        {
+          "butteraugli_max": 0.16667869687080383,
+          "butteraugli_3norm": 0.021614803862268092
+        },
+        {
+          "butteraugli_max": 0.17925310134887695,
+          "butteraugli_3norm": 0.02280820414789395
+        },
+        {
+          "butteraugli_max": 0.17126263678073883,
+          "butteraugli_3norm": 0.020523173989843102
+        },
+        {
+          "butteraugli_max": 0.20284031331539154,
+          "butteraugli_3norm": 0.02723314267416592
+        },
+        {
+          "butteraugli_max": 0.13624988496303558,
+          "butteraugli_3norm": 0.017867956475306562
+        },
+        {
+          "butteraugli_max": 0.1439947783946991,
+          "butteraugli_3norm": 0.017938555229804348
+        },
+        {
+          "butteraugli_max": 0.10923629254102707,
+          "butteraugli_3norm": 0.013411723703308882
+        },
+        {
+          "butteraugli_max": 0.1460578292608261,
+          "butteraugli_3norm": 0.017652247622251847
+        },
+        {
+          "butteraugli_max": 0.1329701840877533,
+          "butteraugli_3norm": 0.015073546599470725
+        },
+        {
+          "butteraugli_max": 0.21046039462089539,
+          "butteraugli_3norm": 0.02572555719730867
+        },
+        {
+          "butteraugli_max": 0.1574142575263977,
+          "butteraugli_3norm": 0.020022854443457565
+        },
+        {
+          "butteraugli_max": 0.17044757306575775,
+          "butteraugli_3norm": 0.021579636225331295
+        },
+        {
+          "butteraugli_max": 0.2080470770597458,
+          "butteraugli_3norm": 0.026639204725093662
+        },
+        {
+          "butteraugli_max": 0.1725761443376541,
+          "butteraugli_3norm": 0.021404493601878505
+        },
+        {
+          "butteraugli_max": 0.16317807137966156,
+          "butteraugli_3norm": 0.020408684763903947
+        },
+        {
+          "butteraugli_max": 0.1831631064414978,
+          "butteraugli_3norm": 0.023600820953235277
+        },
+        {
+          "butteraugli_max": 0.1840563267469406,
+          "butteraugli_3norm": 0.023651058179883833
+        },
+        {
+          "butteraugli_max": 0.19411784410476685,
+          "butteraugli_3norm": 0.022492932267282106
+        },
+        {
+          "butteraugli_max": 0.19411782920360565,
+          "butteraugli_3norm": 0.022492912301374457
+        },
+        {
+          "butteraugli_max": 0.1827380210161209,
+          "butteraugli_3norm": 0.023838870346181096
+        },
+        {
+          "butteraugli_max": 0.18273040652275085,
+          "butteraugli_3norm": 0.023838020931295542
+        },
+        {
+          "butteraugli_max": 0.24969512224197388,
+          "butteraugli_3norm": 0.02933333946832088
+        },
+        {
+          "butteraugli_max": 0.15840423107147217,
+          "butteraugli_3norm": 0.01937692632254207
+        },
+        {
+          "butteraugli_max": 0.20754703879356384,
+          "butteraugli_3norm": 0.02623154850253041
+        },
+        {
+          "butteraugli_max": 0.2067633867263794,
+          "butteraugli_3norm": 0.026829326779211113
+        },
+        {
+          "butteraugli_max": 0.19138459861278534,
+          "butteraugli_3norm": 0.024072570863323883
+        },
+        {
+          "butteraugli_max": 0.19173476099967957,
+          "butteraugli_3norm": 0.024039665630727482
+        },
+        {
+          "butteraugli_max": 0.16246232390403748,
+          "butteraugli_3norm": 0.020972779914007908
+        },
+        {
+          "butteraugli_max": 0.16218240559101105,
+          "butteraugli_3norm": 0.022021530672361078
+        },
+        {
+          "butteraugli_max": 0.24872827529907227,
+          "butteraugli_3norm": 0.031928581861216686
+        },
+        {
+          "butteraugli_max": 0.20540890097618103,
+          "butteraugli_3norm": 0.025012483996379568
+        },
+        {
+          "butteraugli_max": 0.20380721986293793,
+          "butteraugli_3norm": 0.024960476948965457
+        },
+        {
+          "butteraugli_max": 0.20612366497516632,
+          "butteraugli_3norm": 0.025459507292150754
+        },
+        {
+          "butteraugli_max": 0.20912033319473267,
+          "butteraugli_3norm": 0.025689578766495955
+        },
+        {
+          "butteraugli_max": 0.2089688628911972,
+          "butteraugli_3norm": 0.025704395833958355
+        },
+        {
+          "butteraugli_max": 0.2932858467102051,
+          "butteraugli_3norm": 0.040728167813071224
+        },
+        {
+          "butteraugli_max": 0.21197254955768585,
+          "butteraugli_3norm": 0.02672815966834853
+        },
+        {
+          "butteraugli_max": 0.33567196130752563,
+          "butteraugli_3norm": 0.042543422916425544
+        },
+        {
+          "butteraugli_max": 0.10565928369760513,
+          "butteraugli_3norm": 0.011950761618020342
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.20160621404647827,
+          "butteraugli_3norm": 0.02437708428534306
+        },
+        {
+          "butteraugli_max": 0.32950833439826965,
+          "butteraugli_3norm": 0.04196088155523612
+        },
+        {
+          "butteraugli_max": 0.4563768208026886,
+          "butteraugli_3norm": 0.05696476484180412
+        },
+        {
+          "butteraugli_max": 0.5272548794746399,
+          "butteraugli_3norm": 0.06272038033950496
+        },
+        {
+          "butteraugli_max": 0.5055984854698181,
+          "butteraugli_3norm": 0.06198250676068967
+        },
+        {
+          "butteraugli_max": 0.4891718029975891,
+          "butteraugli_3norm": 0.061779706062582984
+        },
+        {
+          "butteraugli_max": 0.1863601803779602,
+          "butteraugli_3norm": 0.022904444487498146
+        },
+        {
+          "butteraugli_max": 0.17730140686035156,
+          "butteraugli_3norm": 0.0219599349242323
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.0,
+          "butteraugli_3norm": 0.0
+        },
+        {
+          "butteraugli_max": 0.24374665319919586,
+          "butteraugli_3norm": 0.030425482245111417
+        },
+        {
+          "butteraugli_max": 0.33080625534057617,
+          "butteraugli_3norm": 0.044993139268124614
+        },
+        {
+          "butteraugli_max": 0.0639830157160759,
+          "butteraugli_3norm": 0.007303038797954524
+        }
+      ]
+    },
+    {
+      "format": "jpeg",
+      "seconds": 170.279686084,
+      "images": [
+        {
+          "butteraugli_max": 2.594005823135376,
+          "butteraugli_3norm": 0.7517973757929314
+        },
+        {
+          "butteraugli_max": 2.195286512374878,
+          "butteraugli_3norm": 0.6004234438016331
+        },
+        {
+          "butteraugli_max": 2.2403953075408936,
+          "butteraugli_3norm": 0.5964315679092216
+        },
+        {
+          "butteraugli_max": 2.23860502243042,
+          "butteraugli_3norm": 0.5752326784690694
+        },
+        {
+          "butteraugli_max": 2.263378143310547,
+          "butteraugli_3norm": 0.6005747772458138
+        },
+        {
+          "butteraugli_max": 2.238684892654419,
+          "butteraugli_3norm": 0.588511944238522
+        },
+        {
+          "butteraugli_max": 2.2903120517730713,
+          "butteraugli_3norm": 0.5861317655613189
+        },
+        {
+          "butteraugli_max": 2.247999668121338,
+          "butteraugli_3norm": 0.6206885419714007
+        },
+        {
+          "butteraugli_max": 2.34647536277771,
+          "butteraugli_3norm": 0.663396361368128
+        },
+        {
+          "butteraugli_max": 2.2878901958465576,
+          "butteraugli_3norm": 0.6069047352171091
+        },
+        {
+          "butteraugli_max": 2.1878414154052734,
+          "butteraugli_3norm": 0.5866048497266686
+        },
+        {
+          "butteraugli_max": 2.192495822906494,
+          "butteraugli_3norm": 0.5622800893709828
+        },
+        {
+          "butteraugli_max": 2.265238046646118,
+          "butteraugli_3norm": 0.5976789106604884
+        },
+        {
+          "butteraugli_max": 2.3241803646087646,
+          "butteraugli_3norm": 0.5724025300380856
+        },
+        {
+          "butteraugli_max": 2.297738790512085,
+          "butteraugli_3norm": 0.6201636536815951
+        },
+        {
+          "butteraugli_max": 2.3112428188323975,
+          "butteraugli_3norm": 0.6155977129079986
+        },
+        {
+          "butteraugli_max": 2.462282657623291,
+          "butteraugli_3norm": 0.6923990696367692
+        },
+        {
+          "butteraugli_max": 2.3167943954467773,
+          "butteraugli_3norm": 0.609725874110554
+        },
+        {
+          "butteraugli_max": 2.273400068283081,
+          "butteraugli_3norm": 0.5778441220789136
+        },
+        {
+          "butteraugli_max": 2.35571551322937,
+          "butteraugli_3norm": 0.5617543447772387
+        },
+        {
+          "butteraugli_max": 2.4131104946136475,
+          "butteraugli_3norm": 0.6086475749099461
+        },
+        {
+          "butteraugli_max": 2.3830204010009766,
+          "butteraugli_3norm": 0.5677755697308972
+        },
+        {
+          "butteraugli_max": 2.373326301574707,
+          "butteraugli_3norm": 0.5878076651456653
+        },
+        {
+          "butteraugli_max": 2.295323371887207,
+          "butteraugli_3norm": 0.5928770012574556
+        },
+        {
+          "butteraugli_max": 2.431755304336548,
+          "butteraugli_3norm": 0.650340549110122
+        },
+        {
+          "butteraugli_max": 2.282557249069214,
+          "butteraugli_3norm": 0.5874614197234321
+        },
+        {
+          "butteraugli_max": 2.2251596450805664,
+          "butteraugli_3norm": 0.5685481481019835
+        },
+        {
+          "butteraugli_max": 2.3743059635162354,
+          "butteraugli_3norm": 0.564238063256991
+        },
+        {
+          "butteraugli_max": 2.482816696166992,
+          "butteraugli_3norm": 0.6066820478369658
+        },
+        {
+          "butteraugli_max": 2.477778673171997,
+          "butteraugli_3norm": 0.5924578937268566
+        },
+        {
+          "butteraugli_max": 2.387221336364746,
+          "butteraugli_3norm": 0.5900137720362362
+        },
+        {
+          "butteraugli_max": 2.4255220890045166,
+          "butteraugli_3norm": 0.59952139097072
+        },
+        {
+          "butteraugli_max": 2.462522029876709,
+          "butteraugli_3norm": 0.6518266799677899
+        },
+        {
+          "butteraugli_max": 2.4294354915618896,
+          "butteraugli_3norm": 0.5919184776744488
+        },
+        {
+          "butteraugli_max": 2.4288246631622314,
+          "butteraugli_3norm": 0.5950979195627538
+        },
+        {
+          "butteraugli_max": 2.249295711517334,
+          "butteraugli_3norm": 0.5428145497143912
+        },
+        {
+          "butteraugli_max": 2.2465410232543945,
+          "butteraugli_3norm": 0.576177501125645
+        },
+        {
+          "butteraugli_max": 2.2933361530303955,
+          "butteraugli_3norm": 0.5627635618904591
+        },
+        {
+          "butteraugli_max": 2.289759874343872,
+          "butteraugli_3norm": 0.6012972482261327
+        },
+        {
+          "butteraugli_max": 2.4073312282562256,
+          "butteraugli_3norm": 0.5808191110288763
+        },
+        {
+          "butteraugli_max": 2.361971378326416,
+          "butteraugli_3norm": 0.6200823978318958
+        },
+        {
+          "butteraugli_max": 2.232682704925537,
+          "butteraugli_3norm": 0.5580037170016737
+        },
+        {
+          "butteraugli_max": 2.2135672569274902,
+          "butteraugli_3norm": 0.5497685058479379
+        },
+        {
+          "butteraugli_max": 2.163933277130127,
+          "butteraugli_3norm": 0.5267523860754091
+        },
+        {
+          "butteraugli_max": 2.1965458393096924,
+          "butteraugli_3norm": 0.5572265019282522
+        },
+        {
+          "butteraugli_max": 2.1818463802337646,
+          "butteraugli_3norm": 0.5274113256977259
+        },
+        {
+          "butteraugli_max": 2.3228282928466797,
+          "butteraugli_3norm": 0.5845729828552709
+        },
+        {
+          "butteraugli_max": 2.1119236946105957,
+          "butteraugli_3norm": 0.5639448664953061
+        },
+        {
+          "butteraugli_max": 2.413135528564453,
+          "butteraugli_3norm": 0.6736038931181483
+        },
+        {
+          "butteraugli_max": 2.397594690322876,
+          "butteraugli_3norm": 0.6170959034709717
+        },
+        {
+          "butteraugli_max": 2.2908642292022705,
+          "butteraugli_3norm": 0.5952464350971906
+        },
+        {
+          "butteraugli_max": 2.2999300956726074,
+          "butteraugli_3norm": 0.5640744247317777
+        },
+        {
+          "butteraugli_max": 2.343338966369629,
+          "butteraugli_3norm": 0.6739214322071144
+        },
+        {
+          "butteraugli_max": 2.2729010581970215,
+          "butteraugli_3norm": 0.5844279020218924
+        },
+        {
+          "butteraugli_max": 2.2111146450042725,
+          "butteraugli_3norm": 0.5918780139888559
+        },
+        {
+          "butteraugli_max": 2.322509288787842,
+          "butteraugli_3norm": 0.5979156861392941
+        },
+        {
+          "butteraugli_max": 2.4537973403930664,
+          "butteraugli_3norm": 0.6738678530102473
+        },
+        {
+          "butteraugli_max": 2.311354398727417,
+          "butteraugli_3norm": 0.601959809603637
+        },
+        {
+          "butteraugli_max": 2.3695876598358154,
+          "butteraugli_3norm": 0.6308406886857002
+        },
+        {
+          "butteraugli_max": 2.2111494541168213,
+          "butteraugli_3norm": 0.5831093109012706
+        }
+      ]
+    }
+  ]
+}
