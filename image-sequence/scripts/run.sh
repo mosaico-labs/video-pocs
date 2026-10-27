@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Encodes one batch of images, measures the quality of the video and writes
-# the results to results/<scenario>/<batch>/preset_<P>_crf_<C>/.
+# the results to video-results/<scenario>/<batch>/preset_<P>_crf_<C>/.
 #
 #   image-sequence/scripts/run.sh                      # regular/batch_060
 #   image-sequence/scripts/run.sh <timestamps.csv>
