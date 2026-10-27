@@ -29,6 +29,7 @@ collected in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 |---|---|
 | [video-parquet](video-parquet/README.md) | Splits each video into chunks and uploads it to a server with its own Arrow Flight `DoPut` call, following mosaicod's upload protocol and storage (one Parquet file per record batch, with a proposed `video` serialization format). Checks that the server received all the data, how long the upload took and how the stored Parquet files compare in size with the video. Results: [video-parquet/results/RESULTS.md](video-parquet/results/RESULTS.md). |
 | [image-sequence](image-sequence/README.md) | Uploads timestamped 8K PNG images with mosaicod's upload flow; the server encodes them into an 8-bit AV1 `.mkv` video with FFmpeg (SVT-AV1), one frame per image at its capture time (to the millisecond): at a constant frame rate when the capture times allow it, otherwise a variable one. A quality tool compares the video with the images (PSNR, PSNR-HVS, MS-SSIM, CIEDE2000, SSIMULACRA2, butteraugli), as losses over visibility thresholds. Results: one summary per encoding, e.g. SVT-AV1 presets 5, 6 and 9 at CRF 18–35 [compared](image-sequence/video-results/regular/batch_060/presets-crfs/README.md), and the [capture-time datasets](image-sequence/datasets/README.md) (camera drops, jitter, rate changes, ...) [compared](image-sequence/video-results/dataset-comparisons/README.md) at preset 5. |
+| [ffv1-analysis](ffv1-analysis/README.md) | Converts 8K frames stored as lossless FFV1 files (60 SEPE 8K frames, through an AV1 video encoded as image-sequence's server does) into raw, TIFF, AVIF, PNG and JPEG, losing as little as each format allows, and compares every format with FFV1: the size of the images, the time to convert an image from FFV1 and to read it back (one image and 4 at a time), and what each format loses (plane by plane, then butteraugli). Results: [ffv1-analysis/results/README.md](ffv1-analysis/results/README.md). |
 
 ## Datasets
 
@@ -70,7 +71,7 @@ scripts/build-datasets.sh --verify           # also check every file's SHA-256
 | `sequences` | `VideoSequences/AV1/4K/` | split of the YouTube Earth video | (Earth video) | – |
 | `sepe` | `VideoChunks/SEPE/` | SEPE 8K, Google Drive | ~28 GB | video-parquet |
 | `uvg` | `VideoChunks/UltraVideoGroup/` | ultravideo.fi, `.7z` archive | ~3.8 GB (7 GB extracted) | – (raw `.yuv`, no container) |
-| `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB | image-sequence (`001/`) |
+| `images` | `ImageSequence/` | SEPE 8K, Google Drive | ~24 GB | image-sequence, ffv1-analysis (`001/`) |
 
 - **Requirements**: `curl`, `python3`, `yt-dlp` (for `youtube` and
   `sequences`), `ffmpeg` and `ffprobe` (for `sequences`), 7-Zip (`7zz` or
