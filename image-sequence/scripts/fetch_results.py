@@ -175,36 +175,50 @@ def readme(sequence, settings, runs):
         "which topic it wants;",
         "   - **metadata** (`TopicAppMetadata`): the format, the frames' size, and the topic's rows and bytes, "
         "which the client can read without downloading anything.",
-        "3. **`DoGet`: the client reads one topic per ticket, and the server streams its images back.** The "
-        "server does this as mosaicod does, in three steps:",
-        "   - **It reads the Parquet file in batches sized to fit about 25 MiB** (mosaicod's *target* message "
-        "size). Rows per batch = 25 MiB ÷ the topic's average image size, rounded down, with at least 1. "
-        "Images averaging 8 MiB are read 3 at a time; images averaging over 25 MiB give 0, so they are read "
-        "1 at a time.",
-        "   - **Arrow Flight's encoder splits any batch that still comes out over 25 MiB.** Images vary in size, "
-        "so a batch can go over the target. The encoder measures the batch (uncompressed, in memory), needs "
-        "n = ⌈size ÷ 25 MiB⌉ pieces, and puts ⌊rows ÷ n⌋ rows in each (at least 1). Two things follow. It "
-        "cuts only between rows, never inside an image, so a single image is sent whole however big it is "
-        f"(a {raw_largest:.1f} MiB raw image goes out as one {raw_largest:.1f} MiB message). "
-        "And because it rounds down, a 3-image batch just over 25 MiB needs 2 pieces, gets ⌊3 ÷ 2⌋ = 1 row in "
-        "each, and goes out as 3 one-image messages.",
-        "   - **Each piece becomes one `FlightData` message** (Arrow IPC), compressed with LZ4 as mosaicod sends "
-        "it, or not (both are measured). The split is decided before compression, so LZ4 does not change the "
-        "number of messages. The stream opens with one more message: the schema.",
-        "",
-        "   **25 MiB is what the server aims for, not a limit; 512 MiB is the limit.** Nothing is ever sent at "
-        "512 MiB: it is the largest message mosaicod will send (`GRPC_MSG_MAX_SIZE_BYTES`), and the client "
-        "sets its receive limit to match. Since an image is never split, a message is as big as its images, "
-        "and 512 MiB is how big a single image can get before reading it back would fail. The upload limit "
-        "is different: 50 MiB by default, which raw's images exceed.",
+        "3. **`DoGet`: the client asks for one topic, and the server sends its images back, a few per "
+        "message.** It tries to keep each message under 25 MiB, without ever cutting an image in two (see the "
+        "note below):",
+        "   - **Before any image, it sends one message that describes the table**: its columns and what each "
+        "holds (`timestamp_ns`, a 64-bit integer; `format`, text; `data`, bytes). The messages after it carry "
+        "only the values, so the client needs this description to know which bytes are the timestamp and "
+        "which are the image. It comes once per stream, which is why each format has one message more than "
+        "its image messages.",
+        "   - **It reads a few images at a time** from the topic's file: about as many as fit in 25 MiB. Images "
+        "of 8 MiB are read 3 at a time; an image over 25 MiB is read alone.",
+        "   - **If a group is still over 25 MiB, it splits it into smaller ones.** It can only cut between two "
+        "images, never through one: each image is one row of the table, and the split moves whole rows. So an "
+        "image always travels whole, in a single message, never half in one and half in the next, and an "
+        "image over 25 MiB gets a message of its own, as big as the image. The split can also go further "
+        "than needed: 3 images just over 25 MiB become 3 messages of one image each, not 2 + 1.",
+        "   - **It sends each group as one message**, compressed with LZ4 as mosaicod does, or not (both are "
+        "measured; compressing does not change the messages).",
         "",
         "   What this gave for each format, uncompressed (LZ4 gives the same messages):",
         "",
         *batching(by["none"], keys),
         "",
-        "   The encoder measures a batch by the memory its buffers hold, which can be more than the image bytes. "
-        "That is why batches with less than 25 MiB of images were still split, and why some messages carry "
-        "fewer images than were read.",
+        "   Some groups were split even with less than 25 MiB of images: the server counts the memory a group "
+        "takes up, which is a little more than its images.",
+        "",
+        "> [!NOTE]",
+        "> **25 MiB is a soft maximum; 512 MiB is a hard limit.**",
+        ">",
+        "> - **25 MiB is a soft maximum** (mosaicod's). Many medium messages, rather than one huge one, let the "
+        "client start on the first images sooner, and neither side has to hold a huge message in memory. The "
+        "server goes over 25 MiB only when a single image is larger, since it never cuts an image in two, and "
+        f"it never pads a message to reach 25 MiB. Here the largest message was "
+        f"{largest_message(by['none']) / MIB:.1f} MiB: one image alone.",
+        "> - **Both ends of a gRPC connection cap the size of a message.** The sender refuses to send a larger "
+        "one, and the receiver refuses to accept it, failing the whole stream. By default a gRPC client "
+        "accepts at most 4 MiB, less than most of these images. So the client raises its cap, its *receive "
+        "limit*, to 512 MiB: the most mosaicod will ever send (`GRPC_MSG_MAX_SIZE_BYTES`). Whatever mosaicod "
+        "sends, the client can take.",
+        "> - **So no image can be over about 512 MiB.** Every message carries at least one whole image, so an "
+        "image larger than that could never be sent back. Taken to the extreme, 512 MiB is the largest image "
+        f"mosaicod can serve: about {512 / raw_largest:.0f} times the {raw_largest:.1f} MiB of a raw 8K "
+        "frame, so far beyond any image here.",
+        "> - **Uploading has its own, smaller cap**: the server accepts messages of at most 50 MiB by default "
+        "(mosaicod's decode limit), which raw's images exceed.",
         "",
         "4. **The client** saves each image as a file and decodes it with the server's own readers (the `formats` "
         f"crate): one at a time, then {workers} at a time. Every image of an exact format must decode to the same "
@@ -235,16 +249,24 @@ def readme(sequence, settings, runs):
         "## Results",
         "",
         "| Format | Images | On the wire, none | On the wire, LZ4 | Receiving, none | Receiving, LZ4 | First image, "
-        "none / LZ4 | Messages | Same frames as raw |",
+        "none / LZ4 | Messages | Same pixels as raw after the download |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
     for key in keys:
         a, b = by["none"][key], by["lz4_frame"][key]
-        check = "yes" if a["matches_raw"] else ("the reference" if key == "raw" else "– (converted)")
+        check = (f"yes, all {n}" if a["matches_raw"] else
+                 "– (the original)" if key == "raw" else "– (converted to RGB, not comparable)")
         lines.append(f"| {name(key)} | {mib(a['image_bytes'])} | {mib(a['wire_bytes'])} | {mib(b['wire_bytes'])} | "
                      f"{a['receive_seconds']:.2f} s | {b['receive_seconds']:.2f} s | "
                      f"{ms(a['first_image_seconds'])} / {ms(b['first_image_seconds'])} | {a['messages']} | {check} |")
     lines += [
+        "",
+        "**Same pixels as raw after the download**: raw is the video's frame as plain pixels, the original. "
+        "After the download, the client decodes every image of a lossless format and compares its pixels with "
+        "raw's frame at the same capture time. \"Yes\" means every image matches exactly: storing, sending and "
+        "decoding lost nothing. A single different pixel would fail the fetch. PNG and JPEG are converted to "
+        "RGB, so their pixels can never match raw's; [the server's results](../server/README.md) measure what "
+        "they lose.",
         "",
         "![Receiving all the images](receive-time.svg)",
         "",
@@ -290,24 +312,35 @@ def readme(sequence, settings, runs):
     return "\n".join(lines) + "\n"
 
 
+def message_sizes(topic):
+    """The image bytes of each DoGet message of a topic: images arrive in
+    order, batch after batch, so they group by batch_rows."""
+    sizes = [i["bytes"] for i in topic["images"]]
+    offsets = [0]
+    for rows in topic["batch_rows"]:
+        offsets.append(offsets[-1] + rows)
+    return [sum(sizes[a:b]) for a, b in zip(offsets, offsets[1:])]
+
+
+def largest_message(topics):
+    """The image bytes of the largest DoGet message, across the topics."""
+    return max(max(message_sizes(t)) for t in topics.values())
+
+
 def batching(topics, keys):
     """How DoGet batched each format's images: the rows read per batch (the
     target over the average image, as the server sizes it), the messages they
     were split into, and the largest one's image bytes, as table lines."""
     target = 25 * MIB
-    lines = ["   | Format | Average image | Largest image | Rows read per batch | Images per message | Largest "
-             "message (image bytes) | Messages (with the schema) |",
+    lines = ["   | Format | Average image | Largest image | Images read at a time | Images per message | Largest "
+             "message (image bytes) | Messages (with the one describing the table) |",
              "   |---|---|---|---|---|---|---|"]
     for key in keys:
         t = topics[key]
         sizes = [i["bytes"] for i in t["images"]]
         average = sum(sizes) / len(sizes)
         read = min(max(int(target // average), 1), 8192)
-        # Images arrive in order, batch after batch: group them by batch_rows.
-        largest, offset = 0, 0
-        for rows in t["batch_rows"]:
-            largest = max(largest, sum(sizes[offset:offset + rows]))
-            offset += rows
+        largest = max(message_sizes(t))
         counts = Counter(t["batch_rows"])
         per_message = ", ".join(f"{counts[rows]} × {rows}" for rows in sorted(counts, reverse=True))
         lines.append(f"   | {name(key)} | {average / MIB:.1f} MiB | {max(sizes) / MIB:.1f} MiB | {read} | "
