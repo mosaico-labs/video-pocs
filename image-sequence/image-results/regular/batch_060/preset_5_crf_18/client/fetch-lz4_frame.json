@@ -1,0 +1,2926 @@
+{
+  "sequence": "regular_batch_060",
+  "preset": 5,
+  "crf": 18,
+  "width": 8192,
+  "height": 4320,
+  "get_flight_info_seconds": 0.002874208,
+  "topics": [
+    {
+      "locator": "regular_batch_060/camera/images/raw",
+      "format": "raw",
+      "exact": true,
+      "compression": "lz4_frame",
+      "image_bytes": 3185049600,
+      "wire_bytes": 1092477664,
+      "messages": 61,
+      "batch_rows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "first_image_seconds": 0.232264833,
+      "receive_seconds": 4.994487291,
+      "save_seconds": 0.4258188729999999,
+      "decode_seconds": 0.19983333300000003,
+      "decode_parallel_seconds": 0.099386333,
+      "workers": 4,
+      "matches_raw": null,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 53084160,
+          "arrival_seconds": 0.232264833,
+          "save_seconds": 0.006572208,
+          "decode_seconds": 0.002762208
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 53084160,
+          "arrival_seconds": 0.303557833,
+          "save_seconds": 0.004072334,
+          "decode_seconds": 0.002715333
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 53084160,
+          "arrival_seconds": 0.379517666,
+          "save_seconds": 0.00411275,
+          "decode_seconds": 0.002985209
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 53084160,
+          "arrival_seconds": 0.450666833,
+          "save_seconds": 0.004114,
+          "decode_seconds": 0.003030042
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 53084160,
+          "arrival_seconds": 0.524961541,
+          "save_seconds": 0.004122166,
+          "decode_seconds": 0.003179667
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 53084160,
+          "arrival_seconds": 0.597547375,
+          "save_seconds": 0.004227709,
+          "decode_seconds": 0.003039625
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 53084160,
+          "arrival_seconds": 0.670460875,
+          "save_seconds": 0.007099333,
+          "decode_seconds": 0.003402833
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 53084160,
+          "arrival_seconds": 0.735247083,
+          "save_seconds": 0.00419375,
+          "decode_seconds": 0.003363375
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 53084160,
+          "arrival_seconds": 0.80998475,
+          "save_seconds": 0.004451125,
+          "decode_seconds": 0.003458958
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 53084160,
+          "arrival_seconds": 0.884526041,
+          "save_seconds": 0.004846417,
+          "decode_seconds": 0.003968459
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 53084160,
+          "arrival_seconds": 0.965271416,
+          "save_seconds": 0.005256458,
+          "decode_seconds": 0.004148209
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 53084160,
+          "arrival_seconds": 1.040753083,
+          "save_seconds": 0.0054515,
+          "decode_seconds": 0.004444792
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 53084160,
+          "arrival_seconds": 1.120438666,
+          "save_seconds": 0.005750833,
+          "decode_seconds": 0.003981416
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 53084160,
+          "arrival_seconds": 1.193956375,
+          "save_seconds": 0.00617525,
+          "decode_seconds": 0.004392667
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 53084160,
+          "arrival_seconds": 1.264816,
+          "save_seconds": 0.006982041,
+          "decode_seconds": 0.004017083
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 53084160,
+          "arrival_seconds": 1.3320367499999999,
+          "save_seconds": 0.0094445,
+          "decode_seconds": 0.00439775
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 53084160,
+          "arrival_seconds": 1.404719541,
+          "save_seconds": 0.006153292,
+          "decode_seconds": 0.004971417
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 53084160,
+          "arrival_seconds": 1.479021,
+          "save_seconds": 0.00929825,
+          "decode_seconds": 0.00415275
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 53084160,
+          "arrival_seconds": 1.5603287080000001,
+          "save_seconds": 0.006410166,
+          "decode_seconds": 0.004180875
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 53084160,
+          "arrival_seconds": 1.635892708,
+          "save_seconds": 0.07075475,
+          "decode_seconds": 0.004731083
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 53084160,
+          "arrival_seconds": 1.7163745000000001,
+          "save_seconds": 0.006177,
+          "decode_seconds": 0.004190708
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 53084160,
+          "arrival_seconds": 1.7963479580000001,
+          "save_seconds": 0.008760958,
+          "decode_seconds": 0.004779458
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 53084160,
+          "arrival_seconds": 1.872249041,
+          "save_seconds": 0.005423625,
+          "decode_seconds": 0.004150042
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 53084160,
+          "arrival_seconds": 1.946135583,
+          "save_seconds": 0.005174958,
+          "decode_seconds": 0.003347958
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 53084160,
+          "arrival_seconds": 2.024389208,
+          "save_seconds": 0.004429791,
+          "decode_seconds": 0.003436667
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 53084160,
+          "arrival_seconds": 2.104274333,
+          "save_seconds": 0.004088709,
+          "decode_seconds": 0.003059083
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 53084160,
+          "arrival_seconds": 2.187076833,
+          "save_seconds": 0.004118084,
+          "decode_seconds": 0.0028825
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 53084160,
+          "arrival_seconds": 2.267427625,
+          "save_seconds": 0.004076333,
+          "decode_seconds": 0.002731125
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 53084160,
+          "arrival_seconds": 2.3527565,
+          "save_seconds": 0.00400075,
+          "decode_seconds": 0.002687458
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 53084160,
+          "arrival_seconds": 2.4343183330000002,
+          "save_seconds": 0.004020959,
+          "decode_seconds": 0.002599833
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 53084160,
+          "arrival_seconds": 2.515911166,
+          "save_seconds": 0.004019125,
+          "decode_seconds": 0.002704541
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 53084160,
+          "arrival_seconds": 2.59140675,
+          "save_seconds": 0.004034333,
+          "decode_seconds": 0.002561875
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 53084160,
+          "arrival_seconds": 2.674683416,
+          "save_seconds": 0.004016542,
+          "decode_seconds": 0.002594875
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 53084160,
+          "arrival_seconds": 2.760142583,
+          "save_seconds": 0.004014625,
+          "decode_seconds": 0.002733334
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 53084160,
+          "arrival_seconds": 2.928061916,
+          "save_seconds": 0.004027208,
+          "decode_seconds": 0.002612959
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 53084160,
+          "arrival_seconds": 2.968753,
+          "save_seconds": 0.004054542,
+          "decode_seconds": 0.002636916
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 53084160,
+          "arrival_seconds": 3.062807166,
+          "save_seconds": 0.004030292,
+          "decode_seconds": 0.002753209
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 53084160,
+          "arrival_seconds": 3.151696666,
+          "save_seconds": 0.004637458,
+          "decode_seconds": 0.002681417
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 53084160,
+          "arrival_seconds": 3.240211583,
+          "save_seconds": 0.004013542,
+          "decode_seconds": 0.002684708
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 53084160,
+          "arrival_seconds": 3.319303875,
+          "save_seconds": 0.004001583,
+          "decode_seconds": 0.002597333
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 53084160,
+          "arrival_seconds": 3.407665583,
+          "save_seconds": 0.075330375,
+          "decode_seconds": 0.002721416
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 53084160,
+          "arrival_seconds": 3.4990945,
+          "save_seconds": 0.00405125,
+          "decode_seconds": 0.002668875
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 53084160,
+          "arrival_seconds": 3.5940977910000003,
+          "save_seconds": 0.004068125,
+          "decode_seconds": 0.002864666
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 53084160,
+          "arrival_seconds": 3.6865096250000002,
+          "save_seconds": 0.004093292,
+          "decode_seconds": 0.003120459
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 53084160,
+          "arrival_seconds": 3.778551208,
+          "save_seconds": 0.004028875,
+          "decode_seconds": 0.002915042
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 53084160,
+          "arrival_seconds": 3.868752041,
+          "save_seconds": 0.004032875,
+          "decode_seconds": 0.002931041
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 53084160,
+          "arrival_seconds": 3.959802583,
+          "save_seconds": 0.004059916,
+          "decode_seconds": 0.003026458
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 53084160,
+          "arrival_seconds": 4.03935875,
+          "save_seconds": 0.004057792,
+          "decode_seconds": 0.003115417
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 53084160,
+          "arrival_seconds": 4.128579458,
+          "save_seconds": 0.004054458,
+          "decode_seconds": 0.002981708
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 53084160,
+          "arrival_seconds": 4.21712575,
+          "save_seconds": 0.0040205,
+          "decode_seconds": 0.002965292
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 53084160,
+          "arrival_seconds": 4.3089471249999995,
+          "save_seconds": 0.004053666,
+          "decode_seconds": 0.00324675
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 53084160,
+          "arrival_seconds": 4.39179125,
+          "save_seconds": 0.004052667,
+          "decode_seconds": 0.002999334
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 53084160,
+          "arrival_seconds": 4.476198208,
+          "save_seconds": 0.005698167,
+          "decode_seconds": 0.003038792
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 53084160,
+          "arrival_seconds": 4.561117333,
+          "save_seconds": 0.004075708,
+          "decode_seconds": 0.00315
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 53084160,
+          "arrival_seconds": 4.643792083,
+          "save_seconds": 0.004087375,
+          "decode_seconds": 0.003087166
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 53084160,
+          "arrival_seconds": 4.719638958,
+          "save_seconds": 0.004180333,
+          "decode_seconds": 0.004136583
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 53084160,
+          "arrival_seconds": 4.801108333,
+          "save_seconds": 0.00417725,
+          "decode_seconds": 0.002912292
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 53084160,
+          "arrival_seconds": 4.877281791,
+          "save_seconds": 0.004193708,
+          "decode_seconds": 0.004052792
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 53084160,
+          "arrival_seconds": 4.953643125,
+          "save_seconds": 0.004578333,
+          "decode_seconds": 0.004055542
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 53084160,
+          "arrival_seconds": 4.991527625,
+          "save_seconds": 0.004314959,
+          "decode_seconds": 0.004093958
+        }
+      ]
+    },
+    {
+      "locator": "regular_batch_060/camera/images/zstd",
+      "format": "zstd",
+      "exact": true,
+      "compression": "lz4_frame",
+      "image_bytes": 607265845,
+      "wire_bytes": 607289024,
+      "messages": 31,
+      "batch_rows": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "first_image_seconds": 0.025042584,
+      "receive_seconds": 0.492951375,
+      "save_seconds": 0.09713241799999998,
+      "decode_seconds": 1.8330161640000004,
+      "decode_parallel_seconds": 0.655134875,
+      "workers": 4,
+      "matches_raw": true,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 8073768,
+          "arrival_seconds": 0.025042584,
+          "save_seconds": 0.003405333,
+          "decode_seconds": 0.035282625
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 10235317,
+          "arrival_seconds": 0.025042584,
+          "save_seconds": 0.002146459,
+          "decode_seconds": 0.035718167
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 10046775,
+          "arrival_seconds": 0.039081875,
+          "save_seconds": 0.001924375,
+          "decode_seconds": 0.033943042
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 10955725,
+          "arrival_seconds": 0.039081875,
+          "save_seconds": 0.002704167,
+          "decode_seconds": 0.035029
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 9806006,
+          "arrival_seconds": 0.053652292,
+          "save_seconds": 0.001994625,
+          "decode_seconds": 0.033557041
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 10903651,
+          "arrival_seconds": 0.053652292,
+          "save_seconds": 0.002717917,
+          "decode_seconds": 0.034174958
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 10076398,
+          "arrival_seconds": 0.068693625,
+          "save_seconds": 0.001868334,
+          "decode_seconds": 0.032237291
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 10155350,
+          "arrival_seconds": 0.068693625,
+          "save_seconds": 0.001949375,
+          "decode_seconds": 0.031817125
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 8734097,
+          "arrival_seconds": 0.083324209,
+          "save_seconds": 0.001988458,
+          "decode_seconds": 0.030427
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 10147380,
+          "arrival_seconds": 0.083324209,
+          "save_seconds": 0.001803625,
+          "decode_seconds": 0.0319065
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 10096354,
+          "arrival_seconds": 0.099724167,
+          "save_seconds": 0.00190175,
+          "decode_seconds": 0.032157583
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 10882881,
+          "arrival_seconds": 0.099724167,
+          "save_seconds": 0.002260208,
+          "decode_seconds": 0.0332725
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 9906348,
+          "arrival_seconds": 0.115000667,
+          "save_seconds": 0.001824208,
+          "decode_seconds": 0.031853375
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 10854610,
+          "arrival_seconds": 0.115000667,
+          "save_seconds": 0.002142875,
+          "decode_seconds": 0.032333708
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 9976638,
+          "arrival_seconds": 0.129574959,
+          "save_seconds": 0.002175125,
+          "decode_seconds": 0.030603
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 10050130,
+          "arrival_seconds": 0.129574959,
+          "save_seconds": 0.001858833,
+          "decode_seconds": 0.030337375
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 8424517,
+          "arrival_seconds": 0.14311825,
+          "save_seconds": 0.00195325,
+          "decode_seconds": 0.028683042
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 10108389,
+          "arrival_seconds": 0.14311825,
+          "save_seconds": 0.001815666,
+          "decode_seconds": 0.0303755
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 9997772,
+          "arrival_seconds": 0.159475625,
+          "save_seconds": 0.0021495,
+          "decode_seconds": 0.030697166
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 11004890,
+          "arrival_seconds": 0.159475625,
+          "save_seconds": 0.001998834,
+          "decode_seconds": 0.031911
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 10196221,
+          "arrival_seconds": 0.177634959,
+          "save_seconds": 0.001895958,
+          "decode_seconds": 0.030915542
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 11154889,
+          "arrival_seconds": 0.177634959,
+          "save_seconds": 0.000882625,
+          "decode_seconds": 0.032204666
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 10380677,
+          "arrival_seconds": 0.192713834,
+          "save_seconds": 0.001868791,
+          "decode_seconds": 0.031389208
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 10407983,
+          "arrival_seconds": 0.192713834,
+          "save_seconds": 0.00185825,
+          "decode_seconds": 0.031124375
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 9155617,
+          "arrival_seconds": 0.208899084,
+          "save_seconds": 0.001642667,
+          "decode_seconds": 0.029952417
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 10451759,
+          "arrival_seconds": 0.208899084,
+          "save_seconds": 0.001881,
+          "decode_seconds": 0.031185708
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 10422628,
+          "arrival_seconds": 0.225525417,
+          "save_seconds": 0.001865667,
+          "decode_seconds": 0.031292333
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 11209918,
+          "arrival_seconds": 0.225525417,
+          "save_seconds": 0.00195225,
+          "decode_seconds": 0.032290292
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 10289639,
+          "arrival_seconds": 0.241678042,
+          "save_seconds": 0.001845542,
+          "decode_seconds": 0.031103958
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 11061981,
+          "arrival_seconds": 0.241678042,
+          "save_seconds": 0.002010292,
+          "decode_seconds": 0.032045708
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 10107551,
+          "arrival_seconds": 0.255690125,
+          "save_seconds": 0.001815958,
+          "decode_seconds": 0.030921292
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 10208868,
+          "arrival_seconds": 0.255690125,
+          "save_seconds": 0.001873791,
+          "decode_seconds": 0.030685667
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 8664264,
+          "arrival_seconds": 0.2706115,
+          "save_seconds": 0.00202875,
+          "decode_seconds": 0.028061833
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 10241163,
+          "arrival_seconds": 0.2706115,
+          "save_seconds": 0.0017745,
+          "decode_seconds": 0.029712916
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 10140166,
+          "arrival_seconds": 0.28645875,
+          "save_seconds": 0.002111792,
+          "decode_seconds": 0.029887083
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 11037791,
+          "arrival_seconds": 0.28645875,
+          "save_seconds": 0.001936792,
+          "decode_seconds": 0.03084025
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 10242434,
+          "arrival_seconds": 0.30200575,
+          "save_seconds": 0.001784833,
+          "decode_seconds": 0.02997325
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 11208506,
+          "arrival_seconds": 0.30200575,
+          "save_seconds": 0.001944958,
+          "decode_seconds": 0.030209542
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 10556491,
+          "arrival_seconds": 0.318449625,
+          "save_seconds": 0.001139541,
+          "decode_seconds": 0.02924875
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 10740713,
+          "arrival_seconds": 0.318449625,
+          "save_seconds": 0.001194292,
+          "decode_seconds": 0.029506
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 9078016,
+          "arrival_seconds": 0.334316417,
+          "save_seconds": 0.0009915,
+          "decode_seconds": 0.027600792
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 10887573,
+          "arrival_seconds": 0.334316417,
+          "save_seconds": 0.001185334,
+          "decode_seconds": 0.030177667
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 10394903,
+          "arrival_seconds": 0.359447125,
+          "save_seconds": 0.001139417,
+          "decode_seconds": 0.029621125
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 11402729,
+          "arrival_seconds": 0.359447125,
+          "save_seconds": 0.000873166,
+          "decode_seconds": 0.030572292
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 10195622,
+          "arrival_seconds": 0.386991584,
+          "save_seconds": 0.00108,
+          "decode_seconds": 0.028969542
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 11347056,
+          "arrival_seconds": 0.386991584,
+          "save_seconds": 0.001151833,
+          "decode_seconds": 0.030333541
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 10464020,
+          "arrival_seconds": 0.404937959,
+          "save_seconds": 0.001073167,
+          "decode_seconds": 0.029494666
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 10607060,
+          "arrival_seconds": 0.404937959,
+          "save_seconds": 0.001332792,
+          "decode_seconds": 0.029445875
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 8571482,
+          "arrival_seconds": 0.427474334,
+          "save_seconds": 0.000875292,
+          "decode_seconds": 0.02713925
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 10497376,
+          "arrival_seconds": 0.427474334,
+          "save_seconds": 0.00124475,
+          "decode_seconds": 0.029184417
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 10314239,
+          "arrival_seconds": 0.443715959,
+          "save_seconds": 0.000824292,
+          "decode_seconds": 0.029470791
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 10921534,
+          "arrival_seconds": 0.443715959,
+          "save_seconds": 0.000865959,
+          "decode_seconds": 0.029949834
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 8857608,
+          "arrival_seconds": 0.458214292,
+          "save_seconds": 0.000695084,
+          "decode_seconds": 0.027618416
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 10075354,
+          "arrival_seconds": 0.458214292,
+          "save_seconds": 0.000816375,
+          "decode_seconds": 0.028783709
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 9919920,
+          "arrival_seconds": 0.470871209,
+          "save_seconds": 0.000726,
+          "decode_seconds": 0.029041042
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 9787830,
+          "arrival_seconds": 0.470871209,
+          "save_seconds": 0.000760375,
+          "decode_seconds": 0.028219167
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 8381476,
+          "arrival_seconds": 0.484145834,
+          "save_seconds": 0.001329958,
+          "decode_seconds": 0.026647167
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 9357729,
+          "arrival_seconds": 0.484145834,
+          "save_seconds": 0.0008195,
+          "decode_seconds": 0.027447041
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 8808054,
+          "arrival_seconds": 0.4917355,
+          "save_seconds": 0.000735958,
+          "decode_seconds": 0.027330292
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 9080009,
+          "arrival_seconds": 0.4917355,
+          "save_seconds": 0.0007205,
+          "decode_seconds": 0.02710175
+        }
+      ]
+    },
+    {
+      "locator": "regular_batch_060/camera/images/avif",
+      "format": "avif",
+      "exact": true,
+      "compression": "lz4_frame",
+      "image_bytes": 405592065,
+      "wire_bytes": 405633280,
+      "messages": 55,
+      "batch_rows": [
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3
+      ],
+      "first_image_seconds": 0.024362959,
+      "receive_seconds": 0.359886417,
+      "save_seconds": 0.16275116499999998,
+      "decode_seconds": 35.746295042000014,
+      "decode_parallel_seconds": 16.016197334,
+      "workers": 4,
+      "matches_raw": true,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 5383164,
+          "arrival_seconds": 0.024362959,
+          "save_seconds": 0.00384175,
+          "decode_seconds": 0.57062625
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 6819412,
+          "arrival_seconds": 0.024362959,
+          "save_seconds": 0.0031585,
+          "decode_seconds": 0.632265166
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 6792485,
+          "arrival_seconds": 0.024362959,
+          "save_seconds": 0.000688916,
+          "decode_seconds": 0.6135365
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 7276202,
+          "arrival_seconds": 0.028447167,
+          "save_seconds": 0.003095625,
+          "decode_seconds": 0.627716834
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 6624225,
+          "arrival_seconds": 0.032207625,
+          "save_seconds": 0.006082917,
+          "decode_seconds": 0.584026416
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 7250832,
+          "arrival_seconds": 0.041006625,
+          "save_seconds": 0.003155,
+          "decode_seconds": 0.619848791
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 6792422,
+          "arrival_seconds": 0.04448975,
+          "save_seconds": 0.003244042,
+          "decode_seconds": 0.59465925
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 6798258,
+          "arrival_seconds": 0.048177167,
+          "save_seconds": 0.0011315,
+          "decode_seconds": 0.599239
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 5851244,
+          "arrival_seconds": 0.057732417,
+          "save_seconds": 0.00514025,
+          "decode_seconds": 0.536322625
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 6815873,
+          "arrival_seconds": 0.061640625,
+          "save_seconds": 0.003109042,
+          "decode_seconds": 0.603957
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 6811603,
+          "arrival_seconds": 0.065332542,
+          "save_seconds": 0.003535833,
+          "decode_seconds": 0.599872042
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 7255887,
+          "arrival_seconds": 0.07711275,
+          "save_seconds": 0.003197958,
+          "decode_seconds": 0.621939875
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 6687578,
+          "arrival_seconds": 0.0803225,
+          "save_seconds": 0.003708667,
+          "decode_seconds": 0.592322541
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 7235454,
+          "arrival_seconds": 0.083683792,
+          "save_seconds": 0.000689875,
+          "decode_seconds": 0.622145834
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 6733756,
+          "arrival_seconds": 0.093869084,
+          "save_seconds": 0.003051209,
+          "decode_seconds": 0.594278209
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 6740726,
+          "arrival_seconds": 0.097308834,
+          "save_seconds": 0.003606,
+          "decode_seconds": 0.599771334
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 5597365,
+          "arrival_seconds": 0.100434167,
+          "save_seconds": 0.00298825,
+          "decode_seconds": 0.519974083
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 6793081,
+          "arrival_seconds": 0.112038875,
+          "save_seconds": 0.000580833,
+          "decode_seconds": 0.59880775
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 6758646,
+          "arrival_seconds": 0.115699459,
+          "save_seconds": 0.003242666,
+          "decode_seconds": 0.591108084
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 7340536,
+          "arrival_seconds": 0.11973825,
+          "save_seconds": 0.004882917,
+          "decode_seconds": 0.622272916
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 6867160,
+          "arrival_seconds": 0.130920042,
+          "save_seconds": 0.003001042,
+          "decode_seconds": 0.5969655
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 7430815,
+          "arrival_seconds": 0.134836625,
+          "save_seconds": 0.003069,
+          "decode_seconds": 0.632684916
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 6985743,
+          "arrival_seconds": 0.138823834,
+          "save_seconds": 0.003520334,
+          "decode_seconds": 0.612492459
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 6983673,
+          "arrival_seconds": 0.149678667,
+          "save_seconds": 0.003022042,
+          "decode_seconds": 0.6162545
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 6100258,
+          "arrival_seconds": 0.153165375,
+          "save_seconds": 0.000535791,
+          "decode_seconds": 0.559859833
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 7033111,
+          "arrival_seconds": 0.156578917,
+          "save_seconds": 0.000623833,
+          "decode_seconds": 0.619534791
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 7008192,
+          "arrival_seconds": 0.169455959,
+          "save_seconds": 0.003558583,
+          "decode_seconds": 0.616247292
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 7462550,
+          "arrival_seconds": 0.173100709,
+          "save_seconds": 0.003055709,
+          "decode_seconds": 0.638570125
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 6904636,
+          "arrival_seconds": 0.177189084,
+          "save_seconds": 0.003575208,
+          "decode_seconds": 0.602254334
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 7361408,
+          "arrival_seconds": 0.18959825,
+          "save_seconds": 0.000622125,
+          "decode_seconds": 0.629092958
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 6822241,
+          "arrival_seconds": 0.193126959,
+          "save_seconds": 0.000564833,
+          "decode_seconds": 0.597606833
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 6851823,
+          "arrival_seconds": 0.197329709,
+          "save_seconds": 0.003230791,
+          "decode_seconds": 0.608385084
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 5757034,
+          "arrival_seconds": 0.207483042,
+          "save_seconds": 0.003002,
+          "decode_seconds": 0.532545792
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 6876553,
+          "arrival_seconds": 0.211372917,
+          "save_seconds": 0.003056959,
+          "decode_seconds": 0.601509417
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 6842630,
+          "arrival_seconds": 0.214994917,
+          "save_seconds": 0.000579625,
+          "decode_seconds": 0.5926515
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 7354273,
+          "arrival_seconds": 0.226572292,
+          "save_seconds": 0.0006235,
+          "decode_seconds": 0.621738083
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 6877538,
+          "arrival_seconds": 0.2304835,
+          "save_seconds": 0.00060475,
+          "decode_seconds": 0.595529667
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 7450155,
+          "arrival_seconds": 0.235152959,
+          "save_seconds": 0.003729584,
+          "decode_seconds": 0.627518
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 7072969,
+          "arrival_seconds": 0.245629667,
+          "save_seconds": 0.001077167,
+          "decode_seconds": 0.6090185
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 7155979,
+          "arrival_seconds": 0.249259584,
+          "save_seconds": 0.003659916,
+          "decode_seconds": 0.620872875
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 5980568,
+          "arrival_seconds": 0.252832584,
+          "save_seconds": 0.0005425,
+          "decode_seconds": 0.542004333
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 7193989,
+          "arrival_seconds": 0.26296675,
+          "save_seconds": 0.000604708,
+          "decode_seconds": 0.624732417
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 6917705,
+          "arrival_seconds": 0.266478709,
+          "save_seconds": 0.003069417,
+          "decode_seconds": 0.598487167
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 7483950,
+          "arrival_seconds": 0.271043542,
+          "save_seconds": 0.000967,
+          "decode_seconds": 0.63035375
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 6779245,
+          "arrival_seconds": 0.2820625,
+          "save_seconds": 0.005139958,
+          "decode_seconds": 0.587322041
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 7498972,
+          "arrival_seconds": 0.285841542,
+          "save_seconds": 0.00063125,
+          "decode_seconds": 0.631202541
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 7021945,
+          "arrival_seconds": 0.28967125,
+          "save_seconds": 0.003826875,
+          "decode_seconds": 0.603499791
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 7074717,
+          "arrival_seconds": 0.300613959,
+          "save_seconds": 0.003286541,
+          "decode_seconds": 0.615376958
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 5718515,
+          "arrival_seconds": 0.316008959,
+          "save_seconds": 0.002992958,
+          "decode_seconds": 0.52176575
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 7026115,
+          "arrival_seconds": 0.316008959,
+          "save_seconds": 0.005200875,
+          "decode_seconds": 0.60720375
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 6958630,
+          "arrival_seconds": 0.316008959,
+          "save_seconds": 0.003097875,
+          "decode_seconds": 0.605060875
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 7204121,
+          "arrival_seconds": 0.320192125,
+          "save_seconds": 0.00358675,
+          "decode_seconds": 0.624059584
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 5817812,
+          "arrival_seconds": 0.323693125,
+          "save_seconds": 0.003080375,
+          "decode_seconds": 0.565130791
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 6659658,
+          "arrival_seconds": 0.33241775,
+          "save_seconds": 0.003171666,
+          "decode_seconds": 0.599781292
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 6599406,
+          "arrival_seconds": 0.335809959,
+          "save_seconds": 0.003104584,
+          "decode_seconds": 0.593159584
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 6437409,
+          "arrival_seconds": 0.338871417,
+          "save_seconds": 0.003010708,
+          "decode_seconds": 0.574521708
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 5558303,
+          "arrival_seconds": 0.34754725,
+          "save_seconds": 0.000532167,
+          "decode_seconds": 0.517208459
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 6160197,
+          "arrival_seconds": 0.3588025,
+          "save_seconds": 0.003483125,
+          "decode_seconds": 0.55148075
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 5910634,
+          "arrival_seconds": 0.3588025,
+          "save_seconds": 0.003123291,
+          "decode_seconds": 0.537007042
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 6032684,
+          "arrival_seconds": 0.3588025,
+          "save_seconds": 0.003454,
+          "decode_seconds": 0.5409135
+        }
+      ]
+    },
+    {
+      "locator": "regular_batch_060/camera/images/ffv1",
+      "format": "ffv1",
+      "exact": true,
+      "compression": "lz4_frame",
+      "image_bytes": 306456777,
+      "wire_bytes": 306484128,
+      "messages": 37,
+      "batch_rows": [
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1,
+        2,
+        2,
+        1
+      ],
+      "first_image_seconds": 0.0510695,
+      "receive_seconds": 0.365764125,
+      "save_seconds": 0.17565429100000005,
+      "decode_seconds": 3.466756375000001,
+      "decode_parallel_seconds": 3.100621709,
+      "workers": 4,
+      "matches_raw": true,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 4024114,
+          "arrival_seconds": 0.0510695,
+          "save_seconds": 0.005427458,
+          "decode_seconds": 0.047146583
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 5080537,
+          "arrival_seconds": 0.0510695,
+          "save_seconds": 0.003013375,
+          "decode_seconds": 0.050837375
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 5070749,
+          "arrival_seconds": 0.055370666,
+          "save_seconds": 0.004740209,
+          "decode_seconds": 0.052856292
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 5520789,
+          "arrival_seconds": 0.055370666,
+          "save_seconds": 0.0005675,
+          "decode_seconds": 0.056411542
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 4947311,
+          "arrival_seconds": 0.056998416,
+          "save_seconds": 0.002969041,
+          "decode_seconds": 0.053188833
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 5499209,
+          "arrival_seconds": 0.079007958,
+          "save_seconds": 0.0030265,
+          "decode_seconds": 0.054837625
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 5092780,
+          "arrival_seconds": 0.079007958,
+          "save_seconds": 0.004789667,
+          "decode_seconds": 0.054925875
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 5227181,
+          "arrival_seconds": 0.083692625,
+          "save_seconds": 0.00345975,
+          "decode_seconds": 0.058850875
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 4379327,
+          "arrival_seconds": 0.083692625,
+          "save_seconds": 0.003036292,
+          "decode_seconds": 0.048318833
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 5234393,
+          "arrival_seconds": 0.085799333,
+          "save_seconds": 0.003091416,
+          "decode_seconds": 0.057558917
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 5110325,
+          "arrival_seconds": 0.117921666,
+          "save_seconds": 0.005125583,
+          "decode_seconds": 0.054411833
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 5492926,
+          "arrival_seconds": 0.117921666,
+          "save_seconds": 0.005091959,
+          "decode_seconds": 0.061162292
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 4999467,
+          "arrival_seconds": 0.122262458,
+          "save_seconds": 0.002991792,
+          "decode_seconds": 0.05604225
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 5478141,
+          "arrival_seconds": 0.122262458,
+          "save_seconds": 0.000754792,
+          "decode_seconds": 0.060434583
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 5031386,
+          "arrival_seconds": 0.124268666,
+          "save_seconds": 0.003010875,
+          "decode_seconds": 0.057533125
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 5162352,
+          "arrival_seconds": 0.142160791,
+          "save_seconds": 0.000576792,
+          "decode_seconds": 0.05875575
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 4182880,
+          "arrival_seconds": 0.142160791,
+          "save_seconds": 0.000496,
+          "decode_seconds": 0.050697542
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 5209821,
+          "arrival_seconds": 0.146770208,
+          "save_seconds": 0.002994042,
+          "decode_seconds": 0.058496875
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 5052454,
+          "arrival_seconds": 0.146770208,
+          "save_seconds": 0.003029708,
+          "decode_seconds": 0.060222666
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 5544943,
+          "arrival_seconds": 0.149083708,
+          "save_seconds": 0.003069667,
+          "decode_seconds": 0.058280833
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 5151605,
+          "arrival_seconds": 0.179489916,
+          "save_seconds": 0.006742208,
+          "decode_seconds": 0.056722833
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 5616600,
+          "arrival_seconds": 0.179489916,
+          "save_seconds": 0.000588,
+          "decode_seconds": 0.061098708
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 5255917,
+          "arrival_seconds": 0.183968958,
+          "save_seconds": 0.004816334,
+          "decode_seconds": 0.056836709
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 5353622,
+          "arrival_seconds": 0.183968958,
+          "save_seconds": 0.000594416,
+          "decode_seconds": 0.063216792
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 4609298,
+          "arrival_seconds": 0.186185958,
+          "save_seconds": 0.003053125,
+          "decode_seconds": 0.054857375
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 5400829,
+          "arrival_seconds": 0.204237958,
+          "save_seconds": 0.004747833,
+          "decode_seconds": 0.060551791
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 5272586,
+          "arrival_seconds": 0.204237958,
+          "save_seconds": 0.00301425,
+          "decode_seconds": 0.057199375
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 5639094,
+          "arrival_seconds": 0.209309958,
+          "save_seconds": 0.003075958,
+          "decode_seconds": 0.059317667
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 5187458,
+          "arrival_seconds": 0.209309958,
+          "save_seconds": 0.003020833,
+          "decode_seconds": 0.056649458
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 5565238,
+          "arrival_seconds": 0.211380916,
+          "save_seconds": 0.000625208,
+          "decode_seconds": 0.061713542
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 5103142,
+          "arrival_seconds": 0.229686875,
+          "save_seconds": 0.005173416,
+          "decode_seconds": 0.05893225
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 5252388,
+          "arrival_seconds": 0.229686875,
+          "save_seconds": 0.002958458,
+          "decode_seconds": 0.05625575
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 4333484,
+          "arrival_seconds": 0.234040666,
+          "save_seconds": 0.000464875,
+          "decode_seconds": 0.055085042
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 5277383,
+          "arrival_seconds": 0.234040666,
+          "save_seconds": 0.001000791,
+          "decode_seconds": 0.0628705
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 5115917,
+          "arrival_seconds": 0.235953458,
+          "save_seconds": 0.000854417,
+          "decode_seconds": 0.062952291
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 5560814,
+          "arrival_seconds": 0.266167583,
+          "save_seconds": 0.000603375,
+          "decode_seconds": 0.068694208
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 5157018,
+          "arrival_seconds": 0.266167583,
+          "save_seconds": 0.00082675,
+          "decode_seconds": 0.066477459
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 5639021,
+          "arrival_seconds": 0.2707035,
+          "save_seconds": 0.001094125,
+          "decode_seconds": 0.067117334
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 5324291,
+          "arrival_seconds": 0.2707035,
+          "save_seconds": 0.004810542,
+          "decode_seconds": 0.065824209
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 5505381,
+          "arrival_seconds": 0.273702875,
+          "save_seconds": 0.000616417,
+          "decode_seconds": 0.0665115
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 4510203,
+          "arrival_seconds": 0.288123791,
+          "save_seconds": 0.003034959,
+          "decode_seconds": 0.055447042
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 5553006,
+          "arrival_seconds": 0.288123791,
+          "save_seconds": 0.003166083,
+          "decode_seconds": 0.066931334
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 5205584,
+          "arrival_seconds": 0.292810666,
+          "save_seconds": 0.0030785,
+          "decode_seconds": 0.059095125
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 5682365,
+          "arrival_seconds": 0.292810666,
+          "save_seconds": 0.000560958,
+          "decode_seconds": 0.061617458
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 5119586,
+          "arrival_seconds": 0.294778625,
+          "save_seconds": 0.003204792,
+          "decode_seconds": 0.059389958
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 5699374,
+          "arrival_seconds": 0.313247875,
+          "save_seconds": 0.003078709,
+          "decode_seconds": 0.063409042
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 5306186,
+          "arrival_seconds": 0.313247875,
+          "save_seconds": 0.004847458,
+          "decode_seconds": 0.058501958
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 5483471,
+          "arrival_seconds": 0.317366416,
+          "save_seconds": 0.003036541,
+          "decode_seconds": 0.06139
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 4342994,
+          "arrival_seconds": 0.317366416,
+          "save_seconds": 0.002907958,
+          "decode_seconds": 0.051264541
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 5440513,
+          "arrival_seconds": 0.31937125,
+          "save_seconds": 0.0030465,
+          "decode_seconds": 0.061091416
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 5244882,
+          "arrival_seconds": 0.34258975,
+          "save_seconds": 0.00388075,
+          "decode_seconds": 0.059072333
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 5449680,
+          "arrival_seconds": 0.34258975,
+          "save_seconds": 0.005096959,
+          "decode_seconds": 0.060056417
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 4418066,
+          "arrival_seconds": 0.346226375,
+          "save_seconds": 0.004971583,
+          "decode_seconds": 0.051168583
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 4929461,
+          "arrival_seconds": 0.346226375,
+          "save_seconds": 0.002945667,
+          "decode_seconds": 0.053866833
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 5000401,
+          "arrival_seconds": 0.348559041,
+          "save_seconds": 0.003044625,
+          "decode_seconds": 0.056358084
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 4769162,
+          "arrival_seconds": 0.35955225,
+          "save_seconds": 0.00483075,
+          "decode_seconds": 0.054362541
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 4193818,
+          "arrival_seconds": 0.35955225,
+          "save_seconds": 0.00280575,
+          "decode_seconds": 0.050098542
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 4576377,
+          "arrival_seconds": 0.363479,
+          "save_seconds": 0.000506542,
+          "decode_seconds": 0.053061125
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 4457394,
+          "arrival_seconds": 0.363479,
+          "save_seconds": 0.002899375,
+          "decode_seconds": 0.052066292
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 4412083,
+          "arrival_seconds": 0.36546925,
+          "save_seconds": 0.004766083,
+          "decode_seconds": 0.048652459
+        }
+      ]
+    },
+    {
+      "locator": "regular_batch_060/camera/images/png",
+      "format": "png",
+      "exact": false,
+      "compression": "lz4_frame",
+      "image_bytes": 1689992176,
+      "wire_bytes": 1690037984,
+      "messages": 61,
+      "batch_rows": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "first_image_seconds": 0.042792834,
+      "receive_seconds": 1.190869042,
+      "save_seconds": 0.17399475100000003,
+      "decode_seconds": 16.612593374000003,
+      "decode_parallel_seconds": 7.208103666,
+      "workers": 4,
+      "matches_raw": null,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 21303143,
+          "arrival_seconds": 0.042792834,
+          "save_seconds": 0.005542041,
+          "decode_seconds": 0.287170042
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 28655113,
+          "arrival_seconds": 0.064657125,
+          "save_seconds": 0.002445833,
+          "decode_seconds": 0.270504667
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 28296447,
+          "arrival_seconds": 0.0889105,
+          "save_seconds": 0.002410125,
+          "decode_seconds": 0.276198
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 31511587,
+          "arrival_seconds": 0.113342417,
+          "save_seconds": 0.002662167,
+          "decode_seconds": 0.287128583
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 27614360,
+          "arrival_seconds": 0.137429625,
+          "save_seconds": 0.002346,
+          "decode_seconds": 0.357933625
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 31326323,
+          "arrival_seconds": 0.164377792,
+          "save_seconds": 0.002668333,
+          "decode_seconds": 0.297871208
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 28462572,
+          "arrival_seconds": 0.18628,
+          "save_seconds": 0.002417875,
+          "decode_seconds": 0.325918458
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 28912313,
+          "arrival_seconds": 0.201172417,
+          "save_seconds": 0.002592292,
+          "decode_seconds": 0.297340875
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 23428355,
+          "arrival_seconds": 0.220693542,
+          "save_seconds": 0.001946333,
+          "decode_seconds": 0.276003125
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 29024954,
+          "arrival_seconds": 0.2376325,
+          "save_seconds": 0.002300959,
+          "decode_seconds": 0.279791875
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 28499601,
+          "arrival_seconds": 0.260902667,
+          "save_seconds": 0.004819208,
+          "decode_seconds": 0.282516208
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 31240797,
+          "arrival_seconds": 0.282545042,
+          "save_seconds": 0.002523833,
+          "decode_seconds": 0.29536125
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 27881415,
+          "arrival_seconds": 0.302353667,
+          "save_seconds": 0.002296625,
+          "decode_seconds": 0.27526325
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 31202847,
+          "arrival_seconds": 0.3236425,
+          "save_seconds": 0.002629292,
+          "decode_seconds": 0.285549833
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 28142406,
+          "arrival_seconds": 0.344263875,
+          "save_seconds": 0.002386792,
+          "decode_seconds": 0.280731167
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 28758555,
+          "arrival_seconds": 0.359950959,
+          "save_seconds": 0.00248975,
+          "decode_seconds": 0.277914833
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 22193755,
+          "arrival_seconds": 0.378050875,
+          "save_seconds": 0.0020265,
+          "decode_seconds": 0.258497792
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 28985200,
+          "arrival_seconds": 0.39990325,
+          "save_seconds": 0.002422084,
+          "decode_seconds": 0.273079417
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 28271377,
+          "arrival_seconds": 0.419125834,
+          "save_seconds": 0.0024915,
+          "decode_seconds": 0.278442583
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 31678350,
+          "arrival_seconds": 0.440384375,
+          "save_seconds": 0.002948667,
+          "decode_seconds": 0.28604725
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 28744658,
+          "arrival_seconds": 0.462524375,
+          "save_seconds": 0.00263525,
+          "decode_seconds": 0.276882042
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 31978437,
+          "arrival_seconds": 0.484038084,
+          "save_seconds": 0.005160917,
+          "decode_seconds": 0.285709083
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 29313195,
+          "arrival_seconds": 0.503932959,
+          "save_seconds": 0.002727083,
+          "decode_seconds": 0.278716584
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 29682822,
+          "arrival_seconds": 0.52496925,
+          "save_seconds": 0.002670334,
+          "decode_seconds": 0.276426542
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 24556416,
+          "arrival_seconds": 0.543112542,
+          "save_seconds": 0.006265708,
+          "decode_seconds": 0.266460708
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 29833662,
+          "arrival_seconds": 0.56273175,
+          "save_seconds": 0.002575791,
+          "decode_seconds": 0.275804042
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 29294260,
+          "arrival_seconds": 0.585378084,
+          "save_seconds": 0.002800041,
+          "decode_seconds": 0.277472584
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 32072929,
+          "arrival_seconds": 0.604010375,
+          "save_seconds": 0.002700834,
+          "decode_seconds": 0.285743708
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 28909368,
+          "arrival_seconds": 0.624475792,
+          "save_seconds": 0.002755083,
+          "decode_seconds": 0.277743208
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 31746053,
+          "arrival_seconds": 0.644836167,
+          "save_seconds": 0.002833959,
+          "decode_seconds": 0.284770375
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 28545256,
+          "arrival_seconds": 0.662147167,
+          "save_seconds": 0.002504833,
+          "decode_seconds": 0.277396
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 29150882,
+          "arrival_seconds": 0.679031459,
+          "save_seconds": 0.002576125,
+          "decode_seconds": 0.273804625
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 22913761,
+          "arrival_seconds": 0.695530084,
+          "save_seconds": 0.001913958,
+          "decode_seconds": 0.262299041
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 29253042,
+          "arrival_seconds": 0.714622125,
+          "save_seconds": 0.009763292,
+          "decode_seconds": 0.274869916
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 28665012,
+          "arrival_seconds": 0.734127125,
+          "save_seconds": 0.00245075,
+          "decode_seconds": 0.279614167
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 31750003,
+          "arrival_seconds": 0.753940959,
+          "save_seconds": 0.005877042,
+          "decode_seconds": 0.285014
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 28840694,
+          "arrival_seconds": 0.773414084,
+          "save_seconds": 0.002572167,
+          "decode_seconds": 0.277032334
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 32131892,
+          "arrival_seconds": 0.793559209,
+          "save_seconds": 0.002829292,
+          "decode_seconds": 0.285664541
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 29661092,
+          "arrival_seconds": 0.814017584,
+          "save_seconds": 0.002642209,
+          "decode_seconds": 0.277514167
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 30378670,
+          "arrival_seconds": 0.831293,
+          "save_seconds": 0.002744667,
+          "decode_seconds": 0.273767792
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 24038118,
+          "arrival_seconds": 0.85089475,
+          "save_seconds": 0.002087792,
+          "decode_seconds": 0.262401
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 30404376,
+          "arrival_seconds": 0.870373334,
+          "save_seconds": 0.002876125,
+          "decode_seconds": 0.272358333
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 28728191,
+          "arrival_seconds": 0.891124667,
+          "save_seconds": 0.002504417,
+          "decode_seconds": 0.271181834
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 31709331,
+          "arrival_seconds": 0.911119084,
+          "save_seconds": 0.002972166,
+          "decode_seconds": 0.282516084
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 27800225,
+          "arrival_seconds": 0.932057792,
+          "save_seconds": 0.002303792,
+          "decode_seconds": 0.269939167
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 31466050,
+          "arrival_seconds": 0.952715042,
+          "save_seconds": 0.002791583,
+          "decode_seconds": 0.275021958
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 28540419,
+          "arrival_seconds": 0.970154792,
+          "save_seconds": 0.002460667,
+          "decode_seconds": 0.265785334
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 28946336,
+          "arrival_seconds": 0.98700825,
+          "save_seconds": 0.00255025,
+          "decode_seconds": 0.263370083
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 22256215,
+          "arrival_seconds": 1.002504834,
+          "save_seconds": 0.001822125,
+          "decode_seconds": 0.248323833
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 28766465,
+          "arrival_seconds": 1.023586,
+          "save_seconds": 0.002611583,
+          "decode_seconds": 0.260473083
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 28146526,
+          "arrival_seconds": 1.043775917,
+          "save_seconds": 0.004769917,
+          "decode_seconds": 0.264329458
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 29920251,
+          "arrival_seconds": 1.0604325000000001,
+          "save_seconds": 0.002686833,
+          "decode_seconds": 0.274161083
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 22904903,
+          "arrival_seconds": 1.077837042,
+          "save_seconds": 0.002361667,
+          "decode_seconds": 0.254966833
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 27087557,
+          "arrival_seconds": 1.097691584,
+          "save_seconds": 0.002638083,
+          "decode_seconds": 0.272941292
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 26253119,
+          "arrival_seconds": 1.116037209,
+          "save_seconds": 0.002714583,
+          "decode_seconds": 0.257561917
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 26199901,
+          "arrival_seconds": 1.134016709,
+          "save_seconds": 0.002469541,
+          "decode_seconds": 0.270692208
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 21764200,
+          "arrival_seconds": 1.150009,
+          "save_seconds": 0.001897625,
+          "decode_seconds": 0.249232083
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 24932800,
+          "arrival_seconds": 1.166377667,
+          "save_seconds": 0.002074125,
+          "decode_seconds": 0.270502208
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 23227958,
+          "arrival_seconds": 1.181764625,
+          "save_seconds": 0.00198075,
+          "decode_seconds": 0.258101167
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 24087661,
+          "arrival_seconds": 1.189162959,
+          "save_seconds": 0.002055583,
+          "decode_seconds": 0.266764916
+        }
+      ]
+    },
+    {
+      "locator": "regular_batch_060/camera/images/jpeg",
+      "format": "jpeg",
+      "exact": false,
+      "compression": "lz4_frame",
+      "image_bytes": 547790754,
+      "wire_bytes": 547813760,
+      "messages": 31,
+      "batch_rows": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "first_image_seconds": 0.03922975,
+      "receive_seconds": 0.624560167,
+      "save_seconds": 0.08333804,
+      "decode_seconds": 7.974078960000001,
+      "decode_parallel_seconds": 5.635459375,
+      "workers": 4,
+      "matches_raw": null,
+      "timestamps_as_uploaded": true,
+      "images": [
+        {
+          "timestamp_ns": 1767225600000000000,
+          "bytes": 7127995,
+          "arrival_seconds": 0.03922975,
+          "save_seconds": 0.0010345,
+          "decode_seconds": 0.1356705
+        },
+        {
+          "timestamp_ns": 1767225600033366667,
+          "bytes": 9188594,
+          "arrival_seconds": 0.03922975,
+          "save_seconds": 0.001007625,
+          "decode_seconds": 0.143921167
+        },
+        {
+          "timestamp_ns": 1767225600066733333,
+          "bytes": 9077882,
+          "arrival_seconds": 0.062443375,
+          "save_seconds": 0.00328625,
+          "decode_seconds": 0.135094083
+        },
+        {
+          "timestamp_ns": 1767225600100100000,
+          "bytes": 9900736,
+          "arrival_seconds": 0.062443375,
+          "save_seconds": 0.001077375,
+          "decode_seconds": 0.150082875
+        },
+        {
+          "timestamp_ns": 1767225600133466667,
+          "bytes": 8876069,
+          "arrival_seconds": 0.080820542,
+          "save_seconds": 0.000816416,
+          "decode_seconds": 0.131558792
+        },
+        {
+          "timestamp_ns": 1767225600166833333,
+          "bytes": 9856194,
+          "arrival_seconds": 0.080820542,
+          "save_seconds": 0.001058625,
+          "decode_seconds": 0.138822875
+        },
+        {
+          "timestamp_ns": 1767225600200200000,
+          "bytes": 9090004,
+          "arrival_seconds": 0.1017435,
+          "save_seconds": 0.000865,
+          "decode_seconds": 0.129489208
+        },
+        {
+          "timestamp_ns": 1767225600233566667,
+          "bytes": 9291967,
+          "arrival_seconds": 0.1017435,
+          "save_seconds": 0.000830208,
+          "decode_seconds": 0.131615917
+        },
+        {
+          "timestamp_ns": 1767225600266933333,
+          "bytes": 7826016,
+          "arrival_seconds": 0.133031875,
+          "save_seconds": 0.00072825,
+          "decode_seconds": 0.120935792
+        },
+        {
+          "timestamp_ns": 1767225600300300000,
+          "bytes": 9305338,
+          "arrival_seconds": 0.133031875,
+          "save_seconds": 0.000822375,
+          "decode_seconds": 0.132381083
+        },
+        {
+          "timestamp_ns": 1767225600333666667,
+          "bytes": 9107534,
+          "arrival_seconds": 0.154076917,
+          "save_seconds": 0.00089875,
+          "decode_seconds": 0.130918375
+        },
+        {
+          "timestamp_ns": 1767225600367033333,
+          "bytes": 9824753,
+          "arrival_seconds": 0.154076917,
+          "save_seconds": 0.00112225,
+          "decode_seconds": 0.136892166
+        },
+        {
+          "timestamp_ns": 1767225600400400000,
+          "bytes": 8941167,
+          "arrival_seconds": 0.172750542,
+          "save_seconds": 0.000728042,
+          "decode_seconds": 0.128903875
+        },
+        {
+          "timestamp_ns": 1767225600433766667,
+          "bytes": 9800857,
+          "arrival_seconds": 0.172750542,
+          "save_seconds": 0.003312542,
+          "decode_seconds": 0.137870208
+        },
+        {
+          "timestamp_ns": 1767225600467133333,
+          "bytes": 9013882,
+          "arrival_seconds": 0.193199208,
+          "save_seconds": 0.000751875,
+          "decode_seconds": 0.130134125
+        },
+        {
+          "timestamp_ns": 1767225600500500000,
+          "bytes": 9200093,
+          "arrival_seconds": 0.193199208,
+          "save_seconds": 0.0045975,
+          "decode_seconds": 0.131395708
+        },
+        {
+          "timestamp_ns": 1767225600533866667,
+          "bytes": 7463642,
+          "arrival_seconds": 0.204856375,
+          "save_seconds": 0.000633791,
+          "decode_seconds": 0.116142459
+        },
+        {
+          "timestamp_ns": 1767225600567233333,
+          "bytes": 9285885,
+          "arrival_seconds": 0.204856375,
+          "save_seconds": 0.000731917,
+          "decode_seconds": 0.133774208
+        },
+        {
+          "timestamp_ns": 1767225600600600000,
+          "bytes": 9040357,
+          "arrival_seconds": 0.223904125,
+          "save_seconds": 0.00087525,
+          "decode_seconds": 0.131956708
+        },
+        {
+          "timestamp_ns": 1767225600633966667,
+          "bytes": 9939174,
+          "arrival_seconds": 0.223904125,
+          "save_seconds": 0.000987875,
+          "decode_seconds": 0.141074875
+        },
+        {
+          "timestamp_ns": 1767225600667333333,
+          "bytes": 9170671,
+          "arrival_seconds": 0.240978208,
+          "save_seconds": 0.000788959,
+          "decode_seconds": 0.132478209
+        },
+        {
+          "timestamp_ns": 1767225600700700000,
+          "bytes": 10043020,
+          "arrival_seconds": 0.240978208,
+          "save_seconds": 0.001026625,
+          "decode_seconds": 0.140323584
+        },
+        {
+          "timestamp_ns": 1767225600734066667,
+          "bytes": 9324481,
+          "arrival_seconds": 0.261103292,
+          "save_seconds": 0.000810417,
+          "decode_seconds": 0.13286825
+        },
+        {
+          "timestamp_ns": 1767225600767433333,
+          "bytes": 9502136,
+          "arrival_seconds": 0.261103292,
+          "save_seconds": 0.000979458,
+          "decode_seconds": 0.134915625
+        },
+        {
+          "timestamp_ns": 1767225600800800000,
+          "bytes": 8149653,
+          "arrival_seconds": 0.281436833,
+          "save_seconds": 0.005276375,
+          "decode_seconds": 0.122425458
+        },
+        {
+          "timestamp_ns": 1767225600834166667,
+          "bytes": 9596062,
+          "arrival_seconds": 0.281436833,
+          "save_seconds": 0.001003125,
+          "decode_seconds": 0.13665025
+        },
+        {
+          "timestamp_ns": 1767225600867533333,
+          "bytes": 9359118,
+          "arrival_seconds": 0.30974525,
+          "save_seconds": 0.001096125,
+          "decode_seconds": 0.135012875
+        },
+        {
+          "timestamp_ns": 1767225600900900000,
+          "bytes": 10096322,
+          "arrival_seconds": 0.30974525,
+          "save_seconds": 0.001011292,
+          "decode_seconds": 0.14289475
+        },
+        {
+          "timestamp_ns": 1767225600934266667,
+          "bytes": 9238331,
+          "arrival_seconds": 0.326621458,
+          "save_seconds": 0.00072975,
+          "decode_seconds": 0.133079208
+        },
+        {
+          "timestamp_ns": 1767225600967633333,
+          "bytes": 9971322,
+          "arrival_seconds": 0.326621458,
+          "save_seconds": 0.00102425,
+          "decode_seconds": 0.140524667
+        },
+        {
+          "timestamp_ns": 1767225601001000000,
+          "bytes": 9133126,
+          "arrival_seconds": 0.346053375,
+          "save_seconds": 0.0009735,
+          "decode_seconds": 0.132664625
+        },
+        {
+          "timestamp_ns": 1767225601034366667,
+          "bytes": 9352939,
+          "arrival_seconds": 0.346053375,
+          "save_seconds": 0.001244541,
+          "decode_seconds": 0.135071417
+        },
+        {
+          "timestamp_ns": 1767225601067733333,
+          "bytes": 7683115,
+          "arrival_seconds": 0.366483667,
+          "save_seconds": 0.0007455,
+          "decode_seconds": 0.120467291
+        },
+        {
+          "timestamp_ns": 1767225601101100000,
+          "bytes": 9398370,
+          "arrival_seconds": 0.366483667,
+          "save_seconds": 0.00134525,
+          "decode_seconds": 0.135685584
+        },
+        {
+          "timestamp_ns": 1767225601134466667,
+          "bytes": 9158756,
+          "arrival_seconds": 0.378184792,
+          "save_seconds": 0.000944958,
+          "decode_seconds": 0.133354834
+        },
+        {
+          "timestamp_ns": 1767225601167833333,
+          "bytes": 9975057,
+          "arrival_seconds": 0.378184792,
+          "save_seconds": 0.001088792,
+          "decode_seconds": 0.139839125
+        },
+        {
+          "timestamp_ns": 1767225601201200000,
+          "bytes": 9206616,
+          "arrival_seconds": 0.395679875,
+          "save_seconds": 0.000813542,
+          "decode_seconds": 0.131992875
+        },
+        {
+          "timestamp_ns": 1767225601234566667,
+          "bytes": 10102558,
+          "arrival_seconds": 0.395679875,
+          "save_seconds": 0.001168375,
+          "decode_seconds": 0.141603041
+        },
+        {
+          "timestamp_ns": 1767225601267933333,
+          "bytes": 9453039,
+          "arrival_seconds": 0.415801292,
+          "save_seconds": 0.001027875,
+          "decode_seconds": 0.134521292
+        },
+        {
+          "timestamp_ns": 1767225601301300000,
+          "bytes": 9777282,
+          "arrival_seconds": 0.415801292,
+          "save_seconds": 0.003390042,
+          "decode_seconds": 0.136275084
+        },
+        {
+          "timestamp_ns": 1767225601334666667,
+          "bytes": 8011925,
+          "arrival_seconds": 0.4356385,
+          "save_seconds": 0.000737417,
+          "decode_seconds": 0.121978583
+        },
+        {
+          "timestamp_ns": 1767225601368033333,
+          "bytes": 9861590,
+          "arrival_seconds": 0.4356385,
+          "save_seconds": 0.001127958,
+          "decode_seconds": 0.139004459
+        },
+        {
+          "timestamp_ns": 1767225601401400000,
+          "bytes": 9261177,
+          "arrival_seconds": 0.452537833,
+          "save_seconds": 0.000886292,
+          "decode_seconds": 0.134781583
+        },
+        {
+          "timestamp_ns": 1767225601434766667,
+          "bytes": 10175419,
+          "arrival_seconds": 0.452537833,
+          "save_seconds": 0.001190625,
+          "decode_seconds": 0.14063875
+        },
+        {
+          "timestamp_ns": 1767225601468133333,
+          "bytes": 9124016,
+          "arrival_seconds": 0.470509667,
+          "save_seconds": 0.000953833,
+          "decode_seconds": 0.130565833
+        },
+        {
+          "timestamp_ns": 1767225601501500000,
+          "bytes": 10216393,
+          "arrival_seconds": 0.470509667,
+          "save_seconds": 0.001047625,
+          "decode_seconds": 0.142956542
+        },
+        {
+          "timestamp_ns": 1767225601534866667,
+          "bytes": 9430492,
+          "arrival_seconds": 0.489029667,
+          "save_seconds": 0.00104525,
+          "decode_seconds": 0.135147209
+        },
+        {
+          "timestamp_ns": 1767225601568233333,
+          "bytes": 9738400,
+          "arrival_seconds": 0.489029667,
+          "save_seconds": 0.001172,
+          "decode_seconds": 0.137242375
+        },
+        {
+          "timestamp_ns": 1767225601601600000,
+          "bytes": 7679177,
+          "arrival_seconds": 0.507849167,
+          "save_seconds": 0.003571,
+          "decode_seconds": 0.117490917
+        },
+        {
+          "timestamp_ns": 1767225601634966667,
+          "bytes": 9660287,
+          "arrival_seconds": 0.507849167,
+          "save_seconds": 0.001125333,
+          "decode_seconds": 0.136698209
+        },
+        {
+          "timestamp_ns": 1767225601668333333,
+          "bytes": 9350742,
+          "arrival_seconds": 0.524433208,
+          "save_seconds": 0.001226458,
+          "decode_seconds": 0.134878083
+        },
+        {
+          "timestamp_ns": 1767225601701700000,
+          "bytes": 9799822,
+          "arrival_seconds": 0.524433208,
+          "save_seconds": 0.00129575,
+          "decode_seconds": 0.138615125
+        },
+        {
+          "timestamp_ns": 1767225601735066667,
+          "bytes": 7853961,
+          "arrival_seconds": 0.541317542,
+          "save_seconds": 0.003955875,
+          "decode_seconds": 0.119697959
+        },
+        {
+          "timestamp_ns": 1767225601768433333,
+          "bytes": 9030634,
+          "arrival_seconds": 0.541317542,
+          "save_seconds": 0.000969166,
+          "decode_seconds": 0.131567875
+        },
+        {
+          "timestamp_ns": 1767225601801800000,
+          "bytes": 8942615,
+          "arrival_seconds": 0.560733,
+          "save_seconds": 0.001003,
+          "decode_seconds": 0.131279583
+        },
+        {
+          "timestamp_ns": 1767225601835166667,
+          "bytes": 8758597,
+          "arrival_seconds": 0.560733,
+          "save_seconds": 0.000991875,
+          "decode_seconds": 0.128593041
+        },
+        {
+          "timestamp_ns": 1767225601868533333,
+          "bytes": 7523920,
+          "arrival_seconds": 0.582857625,
+          "save_seconds": 0.003328666,
+          "decode_seconds": 0.117275375
+        },
+        {
+          "timestamp_ns": 1767225601901900000,
+          "bytes": 8360746,
+          "arrival_seconds": 0.582857625,
+          "save_seconds": 0.003204542,
+          "decode_seconds": 0.126685458
+        },
+        {
+          "timestamp_ns": 1767225601935266667,
+          "bytes": 7950341,
+          "arrival_seconds": 0.623411208,
+          "save_seconds": 0.000881667,
+          "decode_seconds": 0.122394417
+        },
+        {
+          "timestamp_ns": 1767225601968633333,
+          "bytes": 8210387,
+          "arrival_seconds": 0.623411208,
+          "save_seconds": 0.000968541,
+          "decode_seconds": 0.125304541
+        }
+      ]
+    }
+  ]
+}
