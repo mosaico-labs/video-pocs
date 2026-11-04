@@ -1,13 +1,17 @@
-//! What `prepare` and the analysis share: the 8-bit YUV 4:2:0 frame
+//! What `prepare`, `input` and the analysis share: the 8-bit YUV 4:2:0 frame
 //! ([`I420`]), FFmpeg's helpers to encode and decode one, the color
-//! conversions ([`color`]) and the image formats ([`formats`]).
+//! conversions ([`color`]), the image formats ([`formats`]) and the batches
+//! of the dataset ([`read_timestamps`]).
 
 pub mod color;
 pub mod formats;
 
-use std::path::Path;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use butteraugli::{ButteraugliParams, Img, RGB, butteraugli_linear};
 use ffmpeg_the_third::{
     Dictionary, Packet, Rational, codec, color as ffcolor, decoder, encoder, format, frame, media,
@@ -233,4 +237,30 @@ pub fn decode_video(
     decoder.send_eof()?;
     receive(&mut decoder)?;
     Ok(())
+}
+
+/// `<scenario>/<batch>`, from `.../<scenario>/<batch>/timestamps.csv`.
+pub fn batch_name(timestamps: &Path) -> Result<PathBuf> {
+    let batch = timestamps.parent().context("timestamps.csv without a batch folder")?;
+    let scenario = batch.parent().and_then(Path::file_name).context("a batch without a scenario folder")?;
+    Ok(Path::new(scenario).join(batch.file_name().context("a batch without a name")?))
+}
+
+/// The rows of an `image,timestamp_ns` CSV: each PNG, resolved from the
+/// repository root, and its capture time in nanoseconds.
+pub fn read_timestamps(csv: &Path) -> Result<Vec<(PathBuf, i64)>> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let text = fs::read_to_string(csv).with_context(|| format!("reading {}", csv.display()))?;
+    let mut lines = text.lines();
+    ensure!(lines.next() == Some("image,timestamp_ns"), "{}: expected the header image,timestamp_ns", csv.display());
+    let rows: Vec<(PathBuf, i64)> = lines
+        .enumerate()
+        .map(|(i, line)| {
+            let (image, timestamp) =
+                line.split_once(',').with_context(|| format!("{} line {}: expected image,timestamp_ns", csv.display(), i + 2))?;
+            Ok((root.join(image), timestamp.parse()?))
+        })
+        .collect::<Result<_>>()?;
+    ensure!(!rows.is_empty(), "{} has no images", csv.display());
+    Ok(rows)
 }

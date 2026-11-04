@@ -30,7 +30,9 @@ use std::{
 use anyhow::{Context, Result, bail, ensure};
 use clap::Parser;
 use ffmpeg_the_third::{Dictionary, Packet, Rational, codec, encoder, format};
-use ffv1_analysis::{AV1_DECODER, I420, color, decode_video, formats::FFV1, init, set_color_tags};
+use ffv1_analysis::{
+    AV1_DECODER, I420, batch_name, color, decode_video, formats::FFV1, init, read_timestamps, set_color_tags,
+};
 
 /// The sequence's frame rate: 29.97 fps.
 const FRAME_RATE: Rational = Rational(30000, 1001);
@@ -58,32 +60,6 @@ struct Args {
     /// SVT-AV1 constant rate factor: 1 (best) to 63 (smallest).
     #[arg(long, default_value_t = 18, value_parser = clap::value_parser!(u8).range(1..=63))]
     crf: u8,
-}
-
-/// `<scenario>/<batch>`, from `.../<scenario>/<batch>/timestamps.csv`.
-fn batch_name(timestamps: &Path) -> Result<PathBuf> {
-    let batch = timestamps.parent().context("timestamps.csv without a batch folder")?;
-    let scenario = batch.parent().and_then(Path::file_name).context("a batch without a scenario folder")?;
-    Ok(Path::new(scenario).join(batch.file_name().context("a batch without a name")?))
-}
-
-/// The rows of an `image,timestamp_ns` CSV: each PNG, resolved from the
-/// repository root, and its capture time in nanoseconds.
-fn read_timestamps(csv: &Path) -> Result<Vec<(PathBuf, i64)>> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    let text = fs::read_to_string(csv).with_context(|| format!("reading {}", csv.display()))?;
-    let mut lines = text.lines();
-    ensure!(lines.next() == Some("image,timestamp_ns"), "{}: expected the header image,timestamp_ns", csv.display());
-    let rows: Vec<(PathBuf, i64)> = lines
-        .enumerate()
-        .map(|(i, line)| {
-            let (image, timestamp) =
-                line.split_once(',').with_context(|| format!("{} line {}: expected image,timestamp_ns", csv.display(), i + 2))?;
-            Ok((root.join(image), timestamp.parse()?))
-        })
-        .collect::<Result<_>>()?;
-    ensure!(!rows.is_empty(), "{} has no images", csv.display());
-    Ok(rows)
 }
 
 /// Reads an 8-bit RGB or RGBA PNG (the alpha dropped) as a frame.
