@@ -12,8 +12,9 @@ butteraugli). Results, with charts: [results/README.md](results/README.md).
 
 60 frames of 8192x4320, one FFV1 `.mkv` file each (~292 MB), built here from
 the SEPE 8K PNGs of `datasets/ImageSequence/001/`, in three steps. The PNGs
-and the AV1 video are only the way to the FFV1 frames: nothing of them is
-measured.
+and the AV1 video are only the way to the FFV1 frames: the comparison of the
+formats measures nothing of them. Only `input` measures the PNGs, against
+the same images in FFV1 (see [the input images](#the-input-images)).
 
 1. **Capture times**: [`scripts/build-timestamps.py`](scripts/build-timestamps.py)
    gives each PNG the time an ideal 29.97 fps camera (exactly 30000/1001)
@@ -67,6 +68,19 @@ others have to convert it, and lose as little as they can:
   converts the file to RGB by its tags shows slightly wrong colors.
 - **JPEG**: lossless JPEG exists, but almost nothing reads it, so the
   standard baseline JPEG is used, at its best quality.
+
+## The input images
+
+`input` measures the 60 PNGs themselves: their size, against the same
+images as they are (8-bit RGBA, no color conversion) in one FFV1 video
+(version 3, 16 slices with a CRC each, in Matroska), as mosaicod's store
+optimizer turns an image sequence into a video. It reads the video back and
+checks every frame against the pixels of its PNG. The PNGs take 1,931.4 MiB
+and their FFV1 video 1,278.6 MiB, 1.5x smaller, every frame exact. It also
+records the size of the AV1 video, to compare it with the analysis' FFV1
+frames, which are its frames: 12.1 MiB against 292.3 MiB. Results, with a
+chart for each:
+[results/reference/ffv1/](results/reference/ffv1/README.md#size-against-the-input-images).
 
 ## What is measured
 
@@ -124,6 +138,7 @@ charts, and the PNGs
 scripts/build-timestamps.py                     # datasets/regular/ (already in the repository)
 cargo run --release --bin prepare               # the AV1 video and its FFV1 frames: ~1 minute, ~10 GiB of memory
 cargo run --release                             # images.json and images-quality.json: ~20 minutes, ~9 GiB of memory for butteraugli
+cargo run --release --bin input                 # input.json: the PNGs against their FFV1 video, ~40 s
 uv run scripts/image_formats.py                 # the charts and the READMEs of results/
 ```
 
@@ -140,5 +155,7 @@ ffv1/regular/batch_060/frame_<k>.mkv       its frames, one FFV1 file each (git-i
 output/<format>/frame_<k>.<ext>            the images (git-ignored)
 results/images.json                        every image's size, times and loss
 results/images-quality.json                butteraugli of every PNG and JPEG image
+output/input/regular/batch_060.mkv         the PNGs as they are in one FFV1 video (git-ignored)
+results/input.json                         the size of the PNGs, of their FFV1 video and of the AV1 video
 results/README.md and the rest of results/ the charts and READMEs, from scripts/image_formats.py
 ```
