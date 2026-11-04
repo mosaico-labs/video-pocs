@@ -12,6 +12,9 @@ folder:
                                  times, and what it lost
     images-quality.json          the analysis' butteraugli of every image of
                                  the formats that are not exact
+    input.json                   the input PNGs, the same images as they are
+                                 in one FFV1 video, and the size of the AV1
+                                 video (`cargo run --release --bin input`)
     README.md                    the formats, how they were measured, each
                                  against FFV1 with the charts, what they show
     filesize-comparison.svg      the images of every format, in all, FFV1 first
@@ -27,6 +30,8 @@ folder:
     butteraugli-max.svg          how far the images look from their frames,
     butteraugli-3norm.svg        butteraugli's max-norm and 3-norm, per format
     reference/ffv1/              FFV1: its README and charts, frame by frame
+    reference/ffv1/filesize-input.svg   the input PNGs against their FFV1 video
+    reference/ffv1/filesize-av1.svg     the AV1 video against its FFV1 frames
     lossless/README.md           raw, TIFF and AVIF, which keep the frames
                                  exactly, against FFV1
     lossy/README.md              PNG and JPEG, which convert them, against FFV1:
@@ -858,7 +863,51 @@ def numbers_table(f, ref, raw, n):
     return rows
 
 
-def format_readme(sequence, f, ref, raw, n):
+def input_section(inputs, ref, n):
+    """FFV1's README: the input PNGs against the same images in one FFV1
+    video, then the AV1 video against the analysis' FFV1 frames, its own."""
+    frames = inputs["frames"]
+    png, video, av1 = inputs["png_bytes"], inputs["ffv1_bytes"], inputs["av1_bytes"]
+    return [
+        "## Size against the input images",
+        "",
+        f"The {frames} PNGs the frames come from (`{inputs['input']}`), against the same images in FFV1. "
+        "`cargo run --release --bin input` ([`input.json`](../../input.json)) encodes every PNG as it is, 8-bit "
+        f"RGBA with no color conversion, into one FFV1 video ({inputs['settings']}), as mosaicod's store optimizer "
+        "turns an image sequence into a video. Then it reads the video back and checks every frame against the "
+        f"pixels of its PNG: all {frames} are exact.",
+        "",
+        "| | All the images | Per image (mean) | Against the PNGs |",
+        "|---|---|---|---|",
+        f"| Input PNGs | {png / MIB:,.1f} MiB | {png / frames / MIB:.2f} MiB | the input |",
+        f"| FFV1 video of the PNGs (exact) | {video / MIB:,.1f} MiB | {video / frames / MIB:.2f} MiB | "
+        f"{vs_size(video, png)} |",
+        "",
+        f"Encoding the {frames} images into the video took {inputs['encode_seconds']:.2f} s "
+        f"({ms(inputs['encode_seconds']) / frames:.0f} ms per image), and reading the whole video back "
+        f"{inputs['decode_seconds']:.2f} s.",
+        "",
+        "![FFV1: the input PNGs, against their FFV1 video](filesize-input.svg)",
+        "",
+        "## Size against the AV1 video",
+        "",
+        "The analysis' FFV1 frames are not the PNGs: they are the frames of the AV1 video `prepare` encoded from "
+        "the PNGs (see the [input](../../../README.md#the-input)), 8-bit YUV 4:2:0, with half the color "
+        "resolution, and already simplified by the AV1 encoding. Here, that video against its own frames in "
+        "FFV1: the same pixels, once lossy and once lossless.",
+        "",
+        "| | All the frames | Per frame (mean) | Against the AV1 video |",
+        "|---|---|---|---|",
+        f"| AV1 video | {av1 / MIB:,.1f} MiB | {av1 / n / MIB:.2f} MiB | the video |",
+        f"| Its frames in FFV1 (the reference) | {ref['bytes'] / MIB:,.1f} MiB | {ref['bytes'] / n / MIB:.2f} MiB | "
+        f"{vs_size(ref['bytes'], av1)} |",
+        "",
+        "![FFV1: the AV1 video, against its frames in FFV1](filesize-av1.svg)",
+        "",
+    ]
+
+
+def format_readme(sequence, f, ref, raw, n, inputs=None):
     """The README of one format's folder: what it is, its numbers against
     FFV1, and its charts, each explained."""
     key = f["format"]
@@ -908,6 +957,8 @@ def format_readme(sequence, f, ref, raw, n):
         f"![{label}: size of each image](filesize.svg)",
         "",
     ]
+    if is_ref and inputs:
+        lines += input_section(inputs, ref, n)
     if not is_ref:
         converts = [ms(t) for t in conversions(f, ref)]
         lines += [
@@ -1306,6 +1357,8 @@ def main():
     parser.add_argument("--results", type=Path, default=RESULTS, help="the folder of the reports [results/]")
     results = parser.parse_args().results
     data = json.loads((results / "images.json").read_text())
+    inputs_path = results / "input.json"
+    inputs = json.loads(inputs_path.read_text()) if inputs_path.exists() else None
     measured = {q["format"]: q["images"] for q in json.loads((results / "images-quality.json").read_text())["formats"]}
     for f in data["formats"]:
         if f["format"] in measured:
@@ -1362,6 +1415,23 @@ def main():
         images = f["images"]
         frame_chart(f"{name}: size of each image", note, [i["bytes"] / MIB for i in images], "MiB", 2,
                     folder / "filesize.svg")
+        if f is ref and inputs:
+            frames, png, av1 = inputs["frames"], inputs["png_bytes"], inputs["av1_bytes"]
+            bar_chart("FFV1: the input PNGs, against their FFV1 video",
+                      f"{inputs['input']}: {frames} PNGs of {inputs['width']}x{inputs['height']}, 8-bit RGBA.\n"
+                      f"All {frames} images: the PNGs, and the same images as they are in one FFV1 video, every "
+                      "pixel kept.", "MiB",
+                      [(f"Input PNGs\n{frames} images", png / MIB, FRAME_BARS),
+                       ("FFV1 video of the PNGs\nexact, RGBA", inputs["ffv1_bytes"] / MIB, color_of(ref))],
+                      folder / "filesize-input.svg", 0, width=6.0,
+                      extras=["the input", vs_size(inputs["ffv1_bytes"], png)])
+            bar_chart("FFV1: the AV1 video, against its frames in FFV1",
+                      f"{context}\nThe AV1 video of the PNGs (SVT-AV1), and its {n} frames in FFV1, the reference:\n"
+                      "the same pixels, once lossy and once lossless.", "MiB",
+                      [(f"AV1 video\n{n} frames", av1 / MIB, FRAME_BARS),
+                       (f"FFV1 frames\nthe reference", f["bytes"] / MIB, color_of(ref))],
+                      folder / "filesize-av1.svg", 0, width=6.0,
+                      extras=["the video", vs_size(f["bytes"], av1)])
         frame_chart(f"{name}: encoding time of each image",
                     f"{note}\nFrom the frame in memory to the file written. Lower is faster.",
                     [ms(i["encode_seconds"]) for i in images], "ms", 0, folder / "encode-time-per-image.svg")
@@ -1402,7 +1472,7 @@ def main():
                             "far the image looks from its frame. Lower is closer.", [q[key] for q in f["butteraugli"]],
                             "", 4, folder / f"{file}-per-image.svg",
                             BUTTERAUGLI_MAX if key == "butteraugli_max" else None)
-        (folder / "README.md").write_text(format_readme(sequence, f, ref, raw, n))
+        (folder / "README.md").write_text(format_readme(sequence, f, ref, raw, n, inputs))
 
     for exact in (True, False):
         (results / GROUPS[exact][0] / "README.md").write_text(group_readme(exact, sequence, data, ref, raw))
