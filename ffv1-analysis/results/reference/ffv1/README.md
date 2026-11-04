@@ -27,6 +27,30 @@ The images take 4.87 MiB on average, from 3.84 MiB (frame 0) to 5.44 MiB (frame 
 
 ![FFV1: size of each image](filesize.svg)
 
+## Size against the input images
+
+The 60 PNGs the frames come from (`datasets/regular/batch_060`), against the same images in FFV1. `cargo run --release --bin input` ([`input.json`](../../input.json)) encodes every PNG as it is, 8-bit RGBA with no color conversion, into one FFV1 video (FFV1 version 3, 16 slices with a CRC each, 8-bit RGBA (`bgra`), one video in Matroska), as mosaicod's store optimizer turns an image sequence into a video. Then it reads the video back and checks every frame against the pixels of its PNG: all 60 are exact.
+
+| | All the images | Per image (mean) | Against the PNGs |
+|---|---|---|---|
+| Input PNGs | 1,931.4 MiB | 32.19 MiB | the input |
+| FFV1 video of the PNGs (exact) | 1,278.6 MiB | 21.31 MiB | 1.5x smaller |
+
+Encoding the 60 images into the video took 9.32 s (155 ms per image), and reading the whole video back 12.26 s.
+
+![FFV1: the input PNGs, against their FFV1 video](filesize-input.svg)
+
+## Size against the AV1 video
+
+The analysis' FFV1 frames are not the PNGs: they are the frames of the AV1 video `prepare` encoded from the PNGs (see the [input](../../../README.md#the-input)), 8-bit YUV 4:2:0, with half the color resolution, and already simplified by the AV1 encoding. Here, that video against its own frames in FFV1: the same pixels, once lossy and once lossless.
+
+| | All the frames | Per frame (mean) | Against the AV1 video |
+|---|---|---|---|
+| AV1 video | 12.1 MiB | 0.20 MiB | the video |
+| Its frames in FFV1 (the reference) | 292.3 MiB | 4.87 MiB | 24.1x larger |
+
+![FFV1: the AV1 video, against its frames in FFV1](filesize-av1.svg)
+
 ## Encoding time of each image
 
 One bar per frame: the time to write its image, from the frame in memory to the file written. The dashed line is the mean.

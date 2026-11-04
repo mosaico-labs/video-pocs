@@ -1,0 +1,254 @@
+{
+  "input": "datasets/regular/batch_060",
+  "width": 8192,
+  "height": 4320,
+  "frames": 60,
+  "settings": "FFV1 version 3, 16 slices with a CRC each, 8-bit RGBA (`bgra`), one video in Matroska",
+  "png_bytes": 2025221877,
+  "ffv1_bytes": 1340720260,
+  "av1_bytes": 12727222,
+  "encode_seconds": 9.320569543,
+  "decode_seconds": 12.261511584,
+  "images": [
+    {
+      "png_bytes": 33787725,
+      "ffv1_bytes": 22321806
+    },
+    {
+      "png_bytes": 33782198,
+      "ffv1_bytes": 22335745
+    },
+    {
+      "png_bytes": 33790263,
+      "ffv1_bytes": 22340041
+    },
+    {
+      "png_bytes": 33802135,
+      "ffv1_bytes": 22339343
+    },
+    {
+      "png_bytes": 33706468,
+      "ffv1_bytes": 22301332
+    },
+    {
+      "png_bytes": 33760535,
+      "ffv1_bytes": 22330493
+    },
+    {
+      "png_bytes": 33840463,
+      "ffv1_bytes": 22357070
+    },
+    {
+      "png_bytes": 33825395,
+      "ffv1_bytes": 22348851
+    },
+    {
+      "png_bytes": 33799986,
+      "ffv1_bytes": 22343841
+    },
+    {
+      "png_bytes": 33843367,
+      "ffv1_bytes": 22361739
+    },
+    {
+      "png_bytes": 33826847,
+      "ffv1_bytes": 22351856
+    },
+    {
+      "png_bytes": 33819065,
+      "ffv1_bytes": 22350293
+    },
+    {
+      "png_bytes": 33831676,
+      "ffv1_bytes": 22360652
+    },
+    {
+      "png_bytes": 33855805,
+      "ffv1_bytes": 22363591
+    },
+    {
+      "png_bytes": 33868462,
+      "ffv1_bytes": 22373544
+    },
+    {
+      "png_bytes": 33865533,
+      "ffv1_bytes": 22369527
+    },
+    {
+      "png_bytes": 33864227,
+      "ffv1_bytes": 22365394
+    },
+    {
+      "png_bytes": 33851756,
+      "ffv1_bytes": 22370587
+    },
+    {
+      "png_bytes": 33857065,
+      "ffv1_bytes": 22366507
+    },
+    {
+      "png_bytes": 33903174,
+      "ffv1_bytes": 22394351
+    },
+    {
+      "png_bytes": 33956111,
+      "ffv1_bytes": 22418926
+    },
+    {
+      "png_bytes": 33970780,
+      "ffv1_bytes": 22420828
+    },
+    {
+      "png_bytes": 33968996,
+      "ffv1_bytes": 22427960
+    },
+    {
+      "png_bytes": 33986684,
+      "ffv1_bytes": 22444669
+    },
+    {
+      "png_bytes": 33927787,
+      "ffv1_bytes": 22413098
+    },
+    {
+      "png_bytes": 33974733,
+      "ffv1_bytes": 22434466
+    },
+    {
+      "png_bytes": 33960381,
+      "ffv1_bytes": 22438175
+    },
+    {
+      "png_bytes": 33976699,
+      "ffv1_bytes": 22453452
+    },
+    {
+      "png_bytes": 34003973,
+      "ffv1_bytes": 22463678
+    },
+    {
+      "png_bytes": 33975644,
+      "ffv1_bytes": 22451705
+    },
+    {
+      "png_bytes": 34015705,
+      "ffv1_bytes": 22464840
+    },
+    {
+      "png_bytes": 34007334,
+      "ffv1_bytes": 22469488
+    },
+    {
+      "png_bytes": 34011309,
+      "ffv1_bytes": 22471856
+    },
+    {
+      "png_bytes": 34000151,
+      "ffv1_bytes": 22461598
+    },
+    {
+      "png_bytes": 34044093,
+      "ffv1_bytes": 22492790
+    },
+    {
+      "png_bytes": 34033890,
+      "ffv1_bytes": 22475169
+    },
+    {
+      "png_bytes": 34048728,
+      "ffv1_bytes": 22489334
+    },
+    {
+      "png_bytes": 33986471,
+      "ffv1_bytes": 22463982
+    },
+    {
+      "png_bytes": 33980289,
+      "ffv1_bytes": 22463131
+    },
+    {
+      "png_bytes": 33961187,
+      "ffv1_bytes": 22455978
+    },
+    {
+      "png_bytes": 33924680,
+      "ffv1_bytes": 22442228
+    },
+    {
+      "png_bytes": 33729889,
+      "ffv1_bytes": 22357313
+    },
+    {
+      "png_bytes": 33717436,
+      "ffv1_bytes": 22324673
+    },
+    {
+      "png_bytes": 33624722,
+      "ffv1_bytes": 22273819
+    },
+    {
+      "png_bytes": 33610807,
+      "ffv1_bytes": 22299672
+    },
+    {
+      "png_bytes": 33576125,
+      "ffv1_bytes": 22277177
+    },
+    {
+      "png_bytes": 33602945,
+      "ffv1_bytes": 22314341
+    },
+    {
+      "png_bytes": 33564709,
+      "ffv1_bytes": 22326195
+    },
+    {
+      "png_bytes": 33672872,
+      "ffv1_bytes": 22390900
+    },
+    {
+      "png_bytes": 33776706,
+      "ffv1_bytes": 22427867
+    },
+    {
+      "png_bytes": 33792598,
+      "ffv1_bytes": 22443802
+    },
+    {
+      "png_bytes": 33719938,
+      "ffv1_bytes": 22437811
+    },
+    {
+      "png_bytes": 33630607,
+      "ffv1_bytes": 22403273
+    },
+    {
+      "png_bytes": 33441331,
+      "ffv1_bytes": 22291573
+    },
+    {
+      "png_bytes": 33026027,
+      "ffv1_bytes": 22005848
+    },
+    {
+      "png_bytes": 32726487,
+      "ffv1_bytes": 21800758
+    },
+    {
+      "png_bytes": 32695351,
+      "ffv1_bytes": 21820683
+    },
+    {
+      "png_bytes": 33072762,
+      "ffv1_bytes": 22008632
+    },
+    {
+      "png_bytes": 33061711,
+      "ffv1_bytes": 21986699
+    },
+    {
+      "png_bytes": 32981084,
+      "ffv1_bytes": 21963067
+    }
+  ]
+}
